@@ -1,13 +1,186 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PriceListStatus {
+  UPLOADED
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+enum PriceUnit {
+  UNIT
+  THOUSAND_UNITS
+  M2
+  ML
+  KG
+  TON
+  BOX
+  PACK
+  PALLET
+  SERVICE
+  UNKNOWN
+}
+
+enum PriceItemStatus {
+  ACTIVE
+  INACTIVE
+  NEEDS_REVIEW
+}
+
+model Supplier {
+  id        String         @id @default(uuid())
+  name      String
+  legalName String?
+  taxId     String?
+  email     String?
+  phone     String?
+  address   String?
+  status    SupplierStatus @default(ACTIVE)
+
+  metadata  Json?
+
+  priceLists PriceList[]
+  aliases    SupplierProductAlias[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([taxId])
+  priceListItems PriceListItem[]
+}
+
+model PriceList {
+  id         String          @id @default(uuid())
+  supplierId String
+  supplier   Supplier        @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  title       String?
+  documentUrl String?
+  fileName    String?
+  mimeType    String?
+  fileSize    Int?
+
+  status      PriceListStatus @default(UPLOADED)
+  validFrom   DateTime?
+  validTo     DateTime?
+
+  rawText     String?
+  rawData     Json?
+  errorMessage String?
+
+  items PriceListItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([validFrom])
+}
+
+model PriceListItem {
+  id          String    @id @default(uuid())
+  priceListId String
+  priceList   PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  canonicalProductId String?
+  canonicalProduct   CanonicalProduct? @relation(fields: [canonicalProductId], references: [id])
+
+  descriptionRaw        String
+  descriptionNormalized String?
+
+  channel String?
+
+  priceAmount       Decimal  @db.Decimal(14, 4)
+  currency          String   @default("EUR")
+  priceUnit         PriceUnit @default(UNKNOWN)
+  priceQuantityBase Decimal  @default(1) @db.Decimal(14, 4)
+  rawUnitLabel      String?
+
+  normalizedUnitPrice Decimal? @db.Decimal(14, 6)
+  normalizedUnit      PriceUnit?
+
+  discountPercent Decimal? @db.Decimal(8, 4)
+  taxPercent      Decimal? @db.Decimal(8, 4)
+
+  status PriceItemStatus @default(ACTIVE)
+
+  rowIndex Int?
+  pageNumber Int?
+
+  rawData Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  aliases SupplierProductAlias[]
+
+  @@index([priceListId])
+  @@index([supplierId])
+  @@index([canonicalProductId])
+  @@index([descriptionNormalized])
+  @@index([priceUnit])
+  @@index([channel])
+}
+
+model CanonicalProduct {
+  id          String @id @default(uuid())
+  name        String
+  description String?
+  category    String?
+
+  defaultUnit PriceUnit @default(UNKNOWN)
+
+  metadata Json?
+
+  priceItems PriceListItem[]
+  aliases    SupplierProductAlias[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([category])
+}
+
+model SupplierProductAlias {
+  id String @id @default(uuid())
+
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  canonicalProductId String?
+  canonicalProduct   CanonicalProduct? @relation(fields: [canonicalProductId], references: [id])
+
+  priceListItemId String?
+  priceListItem   PriceListItem? @relation(fields: [priceListItemId], references: [id], onDelete: SetNull)
+
+  aliasRaw        String
+  aliasNormalized String?
+
+  confidence Decimal? @db.Decimal(5, 4)
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([canonicalProductId])
+  @@index([aliasNormalized])
 }
