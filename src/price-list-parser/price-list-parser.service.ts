@@ -31,6 +31,7 @@ interface CandidateRow {
   pageNumber?: number;
   source: 'ocr-table' | 'raw-text';
   cells?: string[];
+  priceUnitHint?: PriceUnit;
 }
 
 @Injectable()
@@ -83,10 +84,19 @@ export class PriceListParserService {
     const candidates: CandidateRow[] = [];
 
     for (const table of tables) {
+      let priceUnitHint: PriceUnit | undefined;
+
       for (const [rowIndex, row] of (table.rows ?? []).entries()) {
         const cells = row.map((cell) => String(cell).trim()).filter(Boolean);
 
         if (cells.length === 0) {
+          continue;
+        }
+
+        const normalizedRow = this.normalizeDescription(cells.join(' '));
+
+        if (normalizedRow.includes('precio millar')) {
+          priceUnitHint = PriceUnit.THOUSAND_UNITS;
           continue;
         }
 
@@ -96,6 +106,7 @@ export class PriceListParserService {
           pageNumber: table.page,
           source: 'ocr-table',
           cells,
+          priceUnitHint,
         });
       }
     }
@@ -116,7 +127,7 @@ export class PriceListParserService {
       return undefined;
     }
 
-    const unit = this.extractUnit(candidate.text);
+    const unit = this.extractUnit(candidate.text, candidate.priceUnitHint);
     const discountPercent = this.extractPercent(candidate.text, 'discount');
     const taxPercent = this.extractPercent(candidate.text, 'tax');
     const channel = this.extractChannel(candidate.text);
@@ -201,7 +212,7 @@ export class PriceListParserService {
     return after.startsWith('%');
   }
 
-  private extractUnit(text: string) {
+  private extractUnit(text: string, priceUnitHint?: PriceUnit) {
     const normalized = this.normalizeDescription(text);
     const mappings: Array<{
       pattern: RegExp;
@@ -284,14 +295,25 @@ export class PriceListParserService {
 
     const mapping = mappings.find((entry) => entry.pattern.test(normalized));
 
-    return (
-      mapping ?? {
-        priceUnit: PriceUnit.UNKNOWN,
-        quantityBase: 1,
-        normalizedUnit: PriceUnit.UNKNOWN,
-        rawUnitLabel: undefined,
-      }
-    );
+    if (mapping) {
+      return mapping;
+    }
+
+    if (priceUnitHint === PriceUnit.THOUSAND_UNITS) {
+      return {
+        priceUnit: PriceUnit.THOUSAND_UNITS,
+        quantityBase: 1000,
+        normalizedUnit: PriceUnit.M2,
+        rawUnitLabel: 'millar',
+      };
+    }
+
+    return {
+      priceUnit: PriceUnit.UNKNOWN,
+      quantityBase: 1,
+      normalizedUnit: PriceUnit.UNKNOWN,
+      rawUnitLabel: undefined,
+    };
   }
 
   private extractPercent(text: string, kind: 'discount' | 'tax') {

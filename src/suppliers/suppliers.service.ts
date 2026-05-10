@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { SupplierStatus } from '@prisma/client';
+import { PriceItemStatus, SupplierStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
@@ -77,6 +77,53 @@ export class SuppliersService {
     this.logger.log(`Supplier updated successfully. supplierId=${id}`);
 
     return supplier;
+  }
+
+  async findProducts(id: string) {
+    this.logger.debug(`Fetching supplier products. supplierId=${id}`);
+
+    await this.findOne(id);
+
+    return this.prisma.priceListItem.findMany({
+      where: {
+        supplierId: id,
+        status: {
+          not: PriceItemStatus.INACTIVE,
+        },
+      },
+      include: {
+        priceList: true,
+        canonicalProduct: true,
+        aliases: true,
+      },
+      orderBy: [
+        {
+          descriptionNormalized: 'asc',
+        },
+        {
+          createdAt: 'desc',
+        },
+      ],
+    });
+  }
+
+  async findAliases(id: string) {
+    this.logger.debug(`Fetching supplier aliases. supplierId=${id}`);
+
+    await this.findOne(id);
+
+    return this.prisma.supplierProductAlias.findMany({
+      where: {
+        supplierId: id,
+      },
+      include: {
+        canonicalProduct: true,
+        priceListItem: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
   }
 
   async remove(id: string) {

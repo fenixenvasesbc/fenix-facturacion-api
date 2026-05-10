@@ -36,6 +36,20 @@ export class SuppliersController {
     return this.suppliersService.findOne(id);
   }
 
+  @Get(':id/products')
+  findProducts(@Param('id') id: string) {
+    this.logger.debug(`GET /suppliers/:id/products received. supplierId=${id}`);
+
+    return this.suppliersService.findProducts(id);
+  }
+
+  @Get(':id/aliases')
+  findAliases(@Param('id') id: string) {
+    this.logger.debug(`GET /suppliers/:id/aliases received. supplierId=${id}`);
+
+    return this.suppliersService.findAliases(id);
+  }
+
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateSupplierDto) {
     this.logger.debug(`PATCH /suppliers/:id received. supplierId=${id}`);

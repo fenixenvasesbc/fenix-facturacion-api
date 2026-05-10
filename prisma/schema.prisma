@@ -40,6 +40,25 @@ enum PriceItemStatus {
   NEEDS_REVIEW
 }
 
+enum InvoiceStatus {
+  UPLOADED
+  PROCESSING_OCR
+  OCR_PROCESSED
+  PARSING
+  VALIDATING
+  VALIDATED
+  FAILED
+}
+
+enum InvoiceItemValidationStatus {
+  OK
+  SOBRECOSTE
+  PRECIO_MENOR
+  PRODUCTO_NO_ENCONTRADO
+  UNIDAD_INCOMPATIBLE
+  REQUIERE_REVISION
+}
+
 model Supplier {
   id        String         @id @default(uuid())
   name      String
@@ -54,6 +73,7 @@ model Supplier {
 
   priceLists PriceList[]
   aliases    SupplierProductAlias[]
+  invoices   Invoice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -61,6 +81,7 @@ model Supplier {
   @@index([name])
   @@index([taxId])
   priceListItems PriceListItem[]
+  invoiceItems   InvoiceItem[]
 }
 
 model PriceList {
@@ -131,6 +152,7 @@ model PriceListItem {
   updatedAt DateTime @updatedAt
 
   aliases SupplierProductAlias[]
+  invoiceItems InvoiceItem[]
 
   @@index([priceListId])
   @@index([supplierId])
@@ -152,6 +174,7 @@ model CanonicalProduct {
 
   priceItems PriceListItem[]
   aliases    SupplierProductAlias[]
+  invoiceItems InvoiceItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -185,4 +208,81 @@ model SupplierProductAlias {
   @@index([supplierId])
   @@index([canonicalProductId])
   @@index([aliasNormalized])
+}
+
+model Invoice {
+  id         String   @id @default(uuid())
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  title       String?
+  documentUrl String?
+  fileName    String?
+  mimeType    String?
+  fileSize    Int?
+
+  status InvoiceStatus @default(UPLOADED)
+
+  invoiceNumber String?
+  issuedAt      DateTime?
+
+  rawText String?
+  rawData Json?
+
+  validationStatus String?
+  validationResult Json?
+  errorMessage     String?
+
+  items InvoiceItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([invoiceNumber])
+  @@index([issuedAt])
+}
+
+model InvoiceItem {
+  id        String  @id @default(uuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  matchedPriceListItemId String?
+  matchedPriceListItem   PriceListItem? @relation(fields: [matchedPriceListItemId], references: [id], onDelete: SetNull)
+
+  canonicalProductId String?
+  canonicalProduct   CanonicalProduct? @relation(fields: [canonicalProductId], references: [id], onDelete: SetNull)
+
+  descriptionRaw        String
+  descriptionNormalized String?
+
+  quantity Decimal? @db.Decimal(14, 4)
+  unit     PriceUnit @default(UNKNOWN)
+
+  unitPrice   Decimal  @db.Decimal(14, 6)
+  totalAmount Decimal? @db.Decimal(14, 4)
+  currency    String   @default("EUR")
+
+  discountPercent Decimal? @db.Decimal(8, 4)
+  taxPercent      Decimal? @db.Decimal(8, 4)
+
+  validationStatus InvoiceItemValidationStatus @default(REQUIERE_REVISION)
+  differencePercent Decimal? @db.Decimal(10, 4)
+
+  rawData Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@index([supplierId])
+  @@index([matchedPriceListItemId])
+  @@index([canonicalProductId])
+  @@index([descriptionNormalized])
+  @@index([validationStatus])
 }
