@@ -29,6 +29,16 @@ services:
     command: pnpm start:dev
     depends_on:
       - postgres
+      - ocr
+
+  ocr:
+    build:
+      context: ./ocr-service
+      dockerfile: Dockerfile
+    container_name: fenix_facturacion_ocr
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
 
 volumes:
   fenix_facturacion_postgres_data:

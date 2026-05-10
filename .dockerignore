@@ -8,6 +8,7 @@ docker-compose.yml
 .env
 .env.*
 uploads
+ocr-service
 tmp
 temp
 npm-debug.log

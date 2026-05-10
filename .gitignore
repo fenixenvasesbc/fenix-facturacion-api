@@ -12,6 +12,8 @@
 /build
 /coverage
 *.tsbuildinfo
+__pycache__/
+*.pyc
 
 # =========================
 # Logs
