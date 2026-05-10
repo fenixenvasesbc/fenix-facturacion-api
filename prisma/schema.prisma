@@ -13,8 +13,10 @@ enum SupplierStatus {
 
 enum PriceListStatus {
   UPLOADED
-  PROCESSING
-  PROCESSED
+  PROCESSING_OCR
+  OCR_PROCESSED
+  PARSING
+  READY
   FAILED
 }
 

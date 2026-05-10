@@ -114,7 +114,7 @@ export class PriceListsService {
         id,
       },
       data: {
-        status: PriceListStatus.PROCESSING,
+        status: PriceListStatus.PROCESSING_OCR,
         errorMessage: null,
       },
     });
@@ -141,7 +141,7 @@ export class PriceListsService {
           id,
         },
         data: {
-          status: PriceListStatus.PROCESSED,
+          status: PriceListStatus.OCR_PROCESSED,
           rawText: result.text,
           rawData,
         },
@@ -197,52 +197,87 @@ export class PriceListsService {
       );
     }
 
-    const parsedItems = this.priceListParser.parse({
-      rawText: priceList.rawText,
-      rawData: priceList.rawData,
+    await this.prisma.priceList.update({
+      where: {
+        id,
+      },
+      data: {
+        status: PriceListStatus.PARSING,
+        errorMessage: null,
+      },
     });
 
-    if (parsedItems.length === 0) {
-      throw new BadRequestException(
-        'No se detectaron items de precios en el resultado OCR',
+    try {
+      const parsedItems = this.priceListParser.parse({
+        rawText: priceList.rawText,
+        rawData: priceList.rawData,
+      });
+
+      if (parsedItems.length === 0) {
+        throw new BadRequestException(
+          'No se detectaron items de precios en el resultado OCR',
+        );
+      }
+
+      await this.prisma.$transaction([
+        this.prisma.priceListItem.deleteMany({
+          where: {
+            priceListId: id,
+          },
+        }),
+        this.prisma.priceListItem.createMany({
+          data: parsedItems.map((item) => ({
+            priceListId: id,
+            supplierId: priceList.supplierId,
+            descriptionRaw: item.descriptionRaw,
+            descriptionNormalized: item.descriptionNormalized,
+            channel: item.channel,
+            priceAmount: item.priceAmount,
+            currency: item.currency,
+            priceUnit: item.priceUnit,
+            priceQuantityBase: item.priceQuantityBase,
+            rawUnitLabel: item.rawUnitLabel,
+            normalizedUnitPrice: item.normalizedUnitPrice,
+            normalizedUnit: item.normalizedUnit,
+            discountPercent: item.discountPercent,
+            taxPercent: item.taxPercent,
+            status: item.status,
+            rowIndex: item.rowIndex,
+            pageNumber: item.pageNumber,
+            rawData: item.rawData,
+          })),
+        }),
+        this.prisma.priceList.update({
+          where: {
+            id,
+          },
+          data: {
+            status: PriceListStatus.READY,
+          },
+        }),
+      ]);
+
+      this.logger.log(
+        `Price list parsed successfully. priceListId=${id} itemCount=${parsedItems.length}`,
       );
-    }
 
-    await this.prisma.$transaction([
-      this.prisma.priceListItem.deleteMany({
+      return this.findOne(id);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error parseando lista';
+
+      await this.prisma.priceList.update({
         where: {
-          priceListId: id,
+          id,
         },
-      }),
-      this.prisma.priceListItem.createMany({
-        data: parsedItems.map((item) => ({
-          priceListId: id,
-          supplierId: priceList.supplierId,
-          descriptionRaw: item.descriptionRaw,
-          descriptionNormalized: item.descriptionNormalized,
-          channel: item.channel,
-          priceAmount: item.priceAmount,
-          currency: item.currency,
-          priceUnit: item.priceUnit,
-          priceQuantityBase: item.priceQuantityBase,
-          rawUnitLabel: item.rawUnitLabel,
-          normalizedUnitPrice: item.normalizedUnitPrice,
-          normalizedUnit: item.normalizedUnit,
-          discountPercent: item.discountPercent,
-          taxPercent: item.taxPercent,
-          status: item.status,
-          rowIndex: item.rowIndex,
-          pageNumber: item.pageNumber,
-          rawData: item.rawData,
-        })),
-      }),
-    ]);
+        data: {
+          status: PriceListStatus.FAILED,
+          errorMessage,
+        },
+      });
 
-    this.logger.log(
-      `Price list parsed successfully. priceListId=${id} itemCount=${parsedItems.length}`,
-    );
-
-    return this.findOne(id);
+      throw error;
+    }
   }
 
   private async runAutomaticProcessing(id: string) {
