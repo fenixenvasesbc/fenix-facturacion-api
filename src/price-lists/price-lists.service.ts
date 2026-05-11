@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 
 import { Prisma, PriceListStatus } from '@prisma/client';
+import { DocumentExtractionService } from '../document-extraction/document-extraction.service';
 import { OcrService } from '../ocr/ocr.service';
 import { PriceListParserService } from '../price-list-parser/price-list-parser.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -19,6 +20,7 @@ export class PriceListsService {
     private readonly prisma: PrismaService,
     private readonly ocrService: OcrService,
     private readonly priceListParser: PriceListParserService,
+    private readonly documentExtraction: DocumentExtractionService,
   ) {}
 
   async upload(dto: UploadPriceListDto, file: Express.Multer.File) {
@@ -100,6 +102,9 @@ export class PriceListsService {
     const priceList = await this.prisma.priceList.findUnique({
       where: {
         id,
+      },
+      include: {
+        supplier: true,
       },
     });
 
@@ -183,6 +188,9 @@ export class PriceListsService {
       where: {
         id,
       },
+      include: {
+        supplier: true,
+      },
     });
 
     if (!priceList) {
@@ -208,10 +216,37 @@ export class PriceListsService {
     });
 
     try {
-      const parsedItems = this.priceListParser.parse({
+      const structuredItems = this.documentExtraction.extractPriceList({
+        supplierName: priceList.supplier.name,
         rawText: priceList.rawText,
         rawData: priceList.rawData,
       });
+      const parsedItems =
+        structuredItems.length > 0
+          ? structuredItems.map((item) => ({
+              descriptionRaw: item.descriptionRaw,
+              descriptionNormalized: item.descriptionNormalized,
+              channel: item.channel,
+              priceAmount: item.priceAmount,
+              currency: item.currency,
+              priceUnit: item.priceUnit,
+              priceQuantityBase: item.priceQuantityBase,
+              rawUnitLabel: item.rawUnitLabel,
+              normalizedUnitPrice: item.normalizedUnitPrice,
+              normalizedUnit: item.normalizedUnit,
+              status: 'ACTIVE' as const,
+              rowIndex: item.rowIndex,
+              pageNumber: item.pageNumber,
+              rawData: {
+                ...item.rawData,
+                confidence: item.confidence,
+                warnings: item.warnings,
+              },
+            }))
+          : this.priceListParser.parse({
+              rawText: priceList.rawText,
+              rawData: priceList.rawData,
+            });
 
       if (parsedItems.length === 0) {
         throw new BadRequestException(

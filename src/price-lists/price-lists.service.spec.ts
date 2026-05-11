@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { DocumentExtractionService } from '../document-extraction/document-extraction.service';
 import { OcrService } from '../ocr/ocr.service';
 import { PriceListParserService } from '../price-list-parser/price-list-parser.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -27,6 +28,9 @@ describe('PriceListsService', () => {
   let priceListParser: {
     parse: jest.Mock;
   };
+  let documentExtraction: {
+    extractPriceList: jest.Mock;
+  };
 
   beforeEach(async () => {
     prisma = {
@@ -50,6 +54,9 @@ describe('PriceListsService', () => {
     priceListParser = {
       parse: jest.fn(),
     };
+    documentExtraction = {
+      extractPriceList: jest.fn().mockReturnValue([]),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -65,6 +72,10 @@ describe('PriceListsService', () => {
         {
           provide: PriceListParserService,
           useValue: priceListParser,
+        },
+        {
+          provide: DocumentExtractionService,
+          useValue: documentExtraction,
         },
       ],
     }).compile();
@@ -97,6 +108,10 @@ describe('PriceListsService', () => {
       .mockResolvedValueOnce(priceList)
       .mockResolvedValueOnce({
         ...priceList,
+        supplier: {
+          id: 'supplier-id',
+          name: 'Proveedor Demo',
+        },
         rawText: 'Producto 10,00 € unidad',
         rawData: { ocr: {} },
       })

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InvoiceStatus, Prisma } from '@prisma/client';
+import { DocumentExtractionService } from '../document-extraction/document-extraction.service';
 import { OcrService } from '../ocr/ocr.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { InvoiceParserService } from './invoice-parser.service';
@@ -20,6 +21,7 @@ export class InvoicesService {
     private readonly ocrService: OcrService,
     private readonly invoiceParser: InvoiceParserService,
     private readonly invoiceValidation: InvoiceValidationService,
+    private readonly documentExtraction: DocumentExtractionService,
   ) {}
 
   async uploadAndValidate(dto: UploadInvoiceDto, file: Express.Multer.File) {
@@ -126,6 +128,9 @@ export class InvoicesService {
       where: {
         id,
       },
+      include: {
+        supplier: true,
+      },
     });
 
     if (!invoice) {
@@ -175,6 +180,9 @@ export class InvoicesService {
       where: {
         id,
       },
+      include: {
+        supplier: true,
+      },
     });
 
     if (!invoice) {
@@ -196,10 +204,36 @@ export class InvoicesService {
       },
     });
 
-    const parsedItems = this.invoiceParser.parse({
+    const structuredItems = this.documentExtraction.extractInvoice({
+      supplierName: invoice.supplier.name,
       rawText: invoice.rawText,
       rawData: invoice.rawData,
     });
+    const parsedItems =
+      structuredItems.length > 0
+        ? structuredItems.map((item) => ({
+            descriptionRaw: item.descriptionRaw,
+            descriptionNormalized: item.descriptionNormalized,
+            quantity: item.quantity,
+            unit: item.unit,
+            unitPrice: item.unitPrice,
+            totalAmount: item.totalAmount,
+            currency: item.currency,
+            rowIndex: item.rowIndex,
+            pageNumber: item.pageNumber,
+            rawData: {
+              ...item.rawData,
+              reference: item.reference,
+              size: item.size,
+              channel: item.channel,
+              confidence: item.confidence,
+              warnings: item.warnings,
+            },
+          }))
+        : this.invoiceParser.parse({
+            rawText: invoice.rawText,
+            rawData: invoice.rawData,
+          });
 
     if (parsedItems.length === 0) {
       throw new BadRequestException(

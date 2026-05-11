@@ -7,17 +7,31 @@ import {
 } from '@prisma/client';
 import { ParsedInvoiceItem } from './invoice-parser.service';
 
+export type InvoiceDifferenceSeverity = 'CRITICAL' | 'REVIEW' | 'INFO';
+
+export interface InvoiceValidationSummary {
+  totalItems: number;
+  ok: number;
+  overcharges: number;
+  undercharges: number;
+  notFound: number;
+  unitMismatches: number;
+  requiresReview: number;
+}
+
 export interface InvoiceDifference {
   product: string;
   negotiatedPrice: string | null;
   invoicedPrice: string;
   differencePercent: string | null;
   status: InvoiceItemValidationStatus;
+  severity: InvoiceDifferenceSeverity;
 }
 
 export interface InvoiceValidationResponse {
   status: 'OK' | 'DIFFERENCES_FOUND';
   message: string;
+  summary: InvoiceValidationSummary;
   differences: InvoiceDifference[];
 }
 
@@ -82,20 +96,14 @@ export class InvoiceValidationService {
       )
       .map((item) => this.toDifference(item));
 
-    const response: InvoiceValidationResponse =
-      differences.length === 0
-        ? {
-            status: 'OK',
-            message:
-              'Todos los productos fueron cobrados correctamente según los precios negociados.',
-            differences: [],
-          }
-        : {
-            status: 'DIFFERENCES_FOUND',
-            message:
-              'Se encontraron diferencias entre la factura y los precios negociados.',
-            differences,
-          };
+    const summary = this.buildSummary(validatedItems);
+
+    const response: InvoiceValidationResponse = {
+      status: differences.length === 0 ? 'OK' : 'DIFFERENCES_FOUND',
+      message: this.buildMessage(summary, differences.length),
+      summary,
+      differences,
+    };
 
     return {
       response,
@@ -224,7 +232,63 @@ export class InvoiceValidationService {
           ? null
           : `${item.differencePercent >= 0 ? '+' : ''}${this.decimalString(item.differencePercent, 2)}%`,
       status: item.validationStatus,
+      severity: this.resolveSeverity(item.validationStatus),
     };
+  }
+
+  private buildSummary(
+    items: Array<{ validationStatus: InvoiceItemValidationStatus }>,
+  ): InvoiceValidationSummary {
+    const count = (status: InvoiceItemValidationStatus) =>
+      items.filter((item) => item.validationStatus === status).length;
+
+    return {
+      totalItems: items.length,
+      ok: count(InvoiceItemValidationStatus.OK),
+      overcharges: count(InvoiceItemValidationStatus.SOBRECOSTE),
+      undercharges: count(InvoiceItemValidationStatus.PRECIO_MENOR),
+      notFound: count(InvoiceItemValidationStatus.PRODUCTO_NO_ENCONTRADO),
+      unitMismatches: count(InvoiceItemValidationStatus.UNIDAD_INCOMPATIBLE),
+      requiresReview: count(InvoiceItemValidationStatus.REQUIERE_REVISION),
+    };
+  }
+
+  private buildMessage(
+    summary: InvoiceValidationSummary,
+    differencesCount: number,
+  ) {
+    if (differencesCount === 0) {
+      return 'Todos los productos fueron cobrados correctamente segun los precios negociados.';
+    }
+
+    if (summary.overcharges > 0) {
+      return 'Se encontraron sobrecostes y diferencias para revisar.';
+    }
+
+    if (
+      summary.undercharges > 0 &&
+      summary.notFound === 0 &&
+      summary.unitMismatches === 0 &&
+      summary.requiresReview === 0
+    ) {
+      return 'No se detectaron sobrecostes. Hay productos facturados por debajo del precio negociado.';
+    }
+
+    return 'Se encontraron diferencias para revisar.';
+  }
+
+  private resolveSeverity(
+    status: InvoiceItemValidationStatus,
+  ): InvoiceDifferenceSeverity {
+    if (status === InvoiceItemValidationStatus.SOBRECOSTE) {
+      return 'CRITICAL';
+    }
+
+    if (status === InvoiceItemValidationStatus.PRECIO_MENOR) {
+      return 'INFO';
+    }
+
+    return 'REVIEW';
   }
 
   private unitLabel(unit: PriceUnit) {
