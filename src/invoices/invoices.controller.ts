@@ -6,6 +6,7 @@ import {
   Logger,
   Param,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { randomUUID } from 'node:crypto';
 import { extname } from 'path';
+import { FindInvoicesQueryDto } from './dto/find-invoices-query.dto';
 import { UploadInvoiceDto } from './dto/upload-invoice.dto';
 import { InvoicesService } from './invoices.service';
 
@@ -69,10 +71,10 @@ export class InvoicesController {
   }
 
   @Get()
-  findAll() {
+  findAll(@Query() query: FindInvoicesQueryDto) {
     this.logger.debug('GET /invoices received');
 
-    return this.invoicesService.findAll();
+    return this.invoicesService.findAll(query);
   }
 
   @Get(':id')

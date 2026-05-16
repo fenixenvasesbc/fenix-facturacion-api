@@ -50,6 +50,13 @@ enum InvoiceStatus {
   FAILED
 }
 
+enum InvoiceBillingResult {
+  OK
+  NO_OVERCHARGE
+  OVERCHARGED
+  NEEDS_REVIEW
+}
+
 enum InvoiceItemValidationStatus {
   OK
   SOBRECOSTE
@@ -230,6 +237,7 @@ model Invoice {
   rawData Json?
 
   validationStatus String?
+  billingResult    InvoiceBillingResult?
   validationResult Json?
   errorMessage     String?
 
@@ -240,6 +248,7 @@ model Invoice {
 
   @@index([supplierId])
   @@index([status])
+  @@index([billingResult])
   @@index([invoiceNumber])
   @@index([issuedAt])
 }

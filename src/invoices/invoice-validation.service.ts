@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+  InvoiceBillingResult,
   InvoiceItemValidationStatus,
   PriceItemStatus,
   PriceUnit,
@@ -30,6 +31,7 @@ export interface InvoiceDifference {
 
 export interface InvoiceValidationResponse {
   status: 'OK' | 'DIFFERENCES_FOUND';
+  billingResult: InvoiceBillingResult;
   message: string;
   summary: InvoiceValidationSummary;
   differences: InvoiceDifference[];
@@ -100,6 +102,7 @@ export class InvoiceValidationService {
 
     const response: InvoiceValidationResponse = {
       status: differences.length === 0 ? 'OK' : 'DIFFERENCES_FOUND',
+      billingResult: this.resolveBillingResult(summary, differences.length),
       message: this.buildMessage(summary, differences.length),
       summary,
       differences,
@@ -275,6 +278,29 @@ export class InvoiceValidationService {
     }
 
     return 'Se encontraron diferencias para revisar.';
+  }
+
+  private resolveBillingResult(
+    summary: InvoiceValidationSummary,
+    differencesCount: number,
+  ) {
+    if (differencesCount === 0) {
+      return InvoiceBillingResult.OK;
+    }
+
+    if (summary.overcharges > 0) {
+      return InvoiceBillingResult.OVERCHARGED;
+    }
+
+    if (
+      summary.notFound > 0 ||
+      summary.unitMismatches > 0 ||
+      summary.requiresReview > 0
+    ) {
+      return InvoiceBillingResult.NEEDS_REVIEW;
+    }
+
+    return InvoiceBillingResult.NO_OVERCHARGE;
   }
 
   private resolveSeverity(

@@ -4,10 +4,11 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { InvoiceStatus, Prisma } from '@prisma/client';
+import { InvoiceBillingResult, InvoiceStatus, Prisma } from '@prisma/client';
 import { DocumentExtractionService } from '../document-extraction/document-extraction.service';
 import { OcrService } from '../ocr/ocr.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { FindInvoicesQueryDto } from './dto/find-invoices-query.dto';
 import { InvoiceParserService } from './invoice-parser.service';
 import { InvoiceValidationService } from './invoice-validation.service';
 import { UploadInvoiceDto } from './dto/upload-invoice.dto';
@@ -55,8 +56,13 @@ export class InvoicesService {
     return this.runPipeline(invoice.id);
   }
 
-  async findAll() {
+  async findAll(query: FindInvoicesQueryDto = {}) {
     return this.prisma.invoice.findMany({
+      where: {
+        supplierId: query.supplierId,
+        status: query.status,
+        billingResult: query.billingResult,
+      },
       include: {
         supplier: true,
         items: true,
@@ -110,6 +116,7 @@ export class InvoicesService {
         },
         data: {
           status: InvoiceStatus.FAILED,
+          billingResult: InvoiceBillingResult.NEEDS_REVIEW,
           errorMessage,
         },
       });
@@ -117,7 +124,17 @@ export class InvoicesService {
       return {
         invoiceId: id,
         status: 'DIFFERENCES_FOUND',
+        billingResult: InvoiceBillingResult.NEEDS_REVIEW,
         message: errorMessage,
+        summary: {
+          totalItems: 0,
+          ok: 0,
+          overcharges: 0,
+          undercharges: 0,
+          notFound: 0,
+          unitMismatches: 0,
+          requiresReview: 0,
+        },
         differences: [],
       };
     }
@@ -319,6 +336,7 @@ export class InvoicesService {
         data: {
           status: InvoiceStatus.VALIDATED,
           validationStatus: validation.response.status,
+          billingResult: validation.response.billingResult,
           validationResult:
             validation.response as unknown as Prisma.InputJsonObject,
         },

@@ -1,4 +1,5 @@
 import {
+  InvoiceBillingResult,
   InvoiceItemValidationStatus,
   PriceItemStatus,
   PriceUnit,
@@ -57,6 +58,7 @@ describe('InvoiceValidationService', () => {
 
     expect(result.response).toMatchObject({
       status: 'DIFFERENCES_FOUND',
+      billingResult: InvoiceBillingResult.OVERCHARGED,
       summary: {
         totalItems: 1,
         ok: 0,
@@ -121,6 +123,7 @@ describe('InvoiceValidationService', () => {
 
     expect(result.response).toMatchObject({
       status: 'DIFFERENCES_FOUND',
+      billingResult: InvoiceBillingResult.NO_OVERCHARGE,
       message:
         'No se detectaron sobrecostes. Hay productos facturados por debajo del precio negociado.',
       summary: {

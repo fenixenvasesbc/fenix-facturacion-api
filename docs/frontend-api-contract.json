@@ -1,0 +1,511 @@
+{
+  "project": "Fenix Facturacion API",
+  "purpose": "Backend para revision de facturas contra precios negociados por proveedor.",
+  "baseUrl": "http://localhost:3000",
+  "frontendGoal": "El frontend debe permitir gestionar proveedores, listas de precios negociadas, productos negociados y subir facturas para validar si hubo sobrecostes.",
+  "mainFlow": [
+    "Crear o seleccionar un supplier.",
+    "Cargar una lista de precios del supplier o crear items manualmente.",
+    "Subir una factura con supplierId.",
+    "Mostrar billingResult, summary y differences.",
+    "Consultar historial de facturas filtrando por supplierId o billingResult."
+  ],
+  "enums": {
+    "SupplierStatus": ["ACTIVE", "INACTIVE"],
+    "PriceListStatus": [
+      "UPLOADED",
+      "PROCESSING_OCR",
+      "OCR_PROCESSED",
+      "PARSING",
+      "READY",
+      "FAILED"
+    ],
+    "PriceUnit": [
+      "UNIT",
+      "THOUSAND_UNITS",
+      "M2",
+      "ML",
+      "KG",
+      "TON",
+      "BOX",
+      "PACK",
+      "PALLET",
+      "SERVICE",
+      "UNKNOWN"
+    ],
+    "PriceItemStatus": ["ACTIVE", "INACTIVE", "NEEDS_REVIEW"],
+    "InvoiceStatus": [
+      "UPLOADED",
+      "PROCESSING_OCR",
+      "OCR_PROCESSED",
+      "PARSING",
+      "VALIDATING",
+      "VALIDATED",
+      "FAILED"
+    ],
+    "InvoiceValidationStatus": ["OK", "DIFFERENCES_FOUND"],
+    "InvoiceBillingResult": [
+      "OK",
+      "NO_OVERCHARGE",
+      "OVERCHARGED",
+      "NEEDS_REVIEW"
+    ],
+    "InvoiceItemValidationStatus": [
+      "OK",
+      "SOBRECOSTE",
+      "PRECIO_MENOR",
+      "PRODUCTO_NO_ENCONTRADO",
+      "UNIDAD_INCOMPATIBLE",
+      "REQUIERE_REVISION"
+    ],
+    "InvoiceDifferenceSeverity": ["CRITICAL", "REVIEW", "INFO"]
+  },
+  "recommendedFrontendViews": [
+    {
+      "name": "SuppliersDashboard",
+      "description": "Lista proveedores activos y permite crear/editar proveedores.",
+      "primaryEndpoints": [
+        "GET /suppliers",
+        "POST /suppliers",
+        "PATCH /suppliers/:id",
+        "DELETE /suppliers/:id"
+      ]
+    },
+    {
+      "name": "SupplierDetail",
+      "description": "Muestra datos del proveedor, productos negociados, aliases y listas de precios.",
+      "primaryEndpoints": [
+        "GET /suppliers/:id",
+        "GET /suppliers/:id/products",
+        "GET /suppliers/:id/aliases",
+        "GET /price-lists",
+        "POST /price-list-items"
+      ]
+    },
+    {
+      "name": "UploadPriceList",
+      "description": "Carga una lista de precios PDF/JPG/PNG y dispara OCR + parsing automaticamente.",
+      "primaryEndpoints": ["POST /price-lists/upload", "GET /price-lists/:id"]
+    },
+    {
+      "name": "UploadInvoice",
+      "description": "Carga una factura PDF/JPG/PNG y muestra resultado de validacion.",
+      "primaryEndpoints": ["POST /invoices/upload-and-validate"]
+    },
+    {
+      "name": "InvoicesHistory",
+      "description": "Lista facturas validadas y permite filtrar por proveedor o resultado.",
+      "primaryEndpoints": ["GET /invoices", "GET /invoices/:id"]
+    }
+  ],
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/",
+      "description": "Endpoint raiz de prueba.",
+      "responseShape": "string"
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "description": "Verifica API y conexion a base de datos.",
+      "responseExample": {
+        "status": "ok",
+        "database": "connected",
+        "suppliersCount": 1,
+        "timestamp": "2026-05-11T17:00:00.000Z"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/suppliers",
+      "description": "Crea un proveedor.",
+      "contentType": "application/json",
+      "body": {
+        "name": "MORA Y GOMA",
+        "legalName": "Mora y Goma S.L.",
+        "taxId": "B00000000",
+        "email": "compras@example.com",
+        "phone": "+34 000 000 000",
+        "address": "Direccion fiscal"
+      },
+      "requiredFields": ["name"]
+    },
+    {
+      "method": "GET",
+      "path": "/suppliers",
+      "description": "Lista proveedores activos.",
+      "responseShape": "Supplier[]"
+    },
+    {
+      "method": "GET",
+      "path": "/suppliers/:id",
+      "description": "Obtiene un proveedor activo por id.",
+      "pathParams": {
+        "id": "UUID del supplier"
+      },
+      "responseShape": "Supplier"
+    },
+    {
+      "method": "GET",
+      "path": "/suppliers/:id/products",
+      "description": "Lista productos negociados activos o en revision de un proveedor. Esta es la tabla principal para el dashboard de productos del supplier.",
+      "pathParams": {
+        "id": "UUID del supplier"
+      },
+      "responseShape": "PriceListItem[] con priceList, canonicalProduct y aliases"
+    },
+    {
+      "method": "GET",
+      "path": "/suppliers/:id/aliases",
+      "description": "Lista aliases del proveedor.",
+      "pathParams": {
+        "id": "UUID del supplier"
+      },
+      "responseShape": "SupplierProductAlias[]"
+    },
+    {
+      "method": "PATCH",
+      "path": "/suppliers/:id",
+      "description": "Edita un proveedor.",
+      "contentType": "application/json",
+      "pathParams": {
+        "id": "UUID del supplier"
+      },
+      "body": {
+        "name": "MORA Y GOMA",
+        "legalName": "Mora y Goma S.L.",
+        "taxId": "B00000000",
+        "email": "compras@example.com",
+        "phone": "+34 000 000 000",
+        "address": "Direccion fiscal"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/suppliers/:id",
+      "description": "Desactiva un proveedor. No borra fisicamente el registro.",
+      "pathParams": {
+        "id": "UUID del supplier"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/price-lists/upload",
+      "description": "Sube una lista de precios. El backend ejecuta OCR y parsing automaticamente. Los endpoints manuales de OCR/parse se conservan solo para testing.",
+      "contentType": "multipart/form-data",
+      "formData": {
+        "file": "PDF, JPG o PNG. Max 20MB.",
+        "supplierId": "UUID del supplier",
+        "title": "Titulo opcional"
+      },
+      "requiredFields": ["file", "supplierId"],
+      "responseShape": "PriceList con supplier e items"
+    },
+    {
+      "method": "GET",
+      "path": "/price-lists",
+      "description": "Lista todas las listas de precios.",
+      "responseShape": "PriceList[] con supplier"
+    },
+    {
+      "method": "GET",
+      "path": "/price-lists/:id",
+      "description": "Obtiene lista de precios con sus items.",
+      "pathParams": {
+        "id": "UUID de priceList"
+      },
+      "responseShape": "PriceList con supplier e items"
+    },
+    {
+      "method": "POST",
+      "path": "/price-lists/:id/process-ocr",
+      "description": "Procesa OCR de una lista ya subida. Uso recomendado: testing paso a paso.",
+      "pathParams": {
+        "id": "UUID de priceList"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/price-lists/:id/parse",
+      "description": "Parsea una lista ya procesada por OCR. Uso recomendado: testing paso a paso.",
+      "pathParams": {
+        "id": "UUID de priceList"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/price-list-items",
+      "description": "Crea manualmente un producto/precio negociado para un proveedor.",
+      "contentType": "application/json",
+      "body": {
+        "priceListId": "UUID de priceList",
+        "supplierId": "UUID del supplier",
+        "canonicalProductId": "UUID opcional",
+        "descriptionRaw": "BICO-BICO 76,0*50,0",
+        "descriptionNormalized": "bico bico 76 0 50 0",
+        "channel": "opcional",
+        "priceAmount": "0.4594",
+        "currency": "EUR",
+        "priceUnit": "M2",
+        "priceQuantityBase": "1",
+        "rawUnitLabel": "m2",
+        "normalizedUnitPrice": "0.459400",
+        "normalizedUnit": "M2",
+        "discountPercent": "0",
+        "taxPercent": "21",
+        "status": "ACTIVE"
+      },
+      "requiredFields": [
+        "priceListId",
+        "supplierId",
+        "descriptionRaw",
+        "priceAmount"
+      ],
+      "notes": [
+        "priceAmount y campos numericos se envian como string.",
+        "Si no envias descriptionNormalized, el backend la normaliza.",
+        "Si no envias normalizedUnitPrice, el backend calcula priceAmount / priceQuantityBase."
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/price-list-items",
+      "description": "Lista productos negociados activos o en revision de todos los proveedores.",
+      "responseShape": "PriceListItem[] con supplier, priceList, canonicalProduct y aliases"
+    },
+    {
+      "method": "GET",
+      "path": "/price-list-items/:id",
+      "description": "Obtiene un producto negociado.",
+      "pathParams": {
+        "id": "UUID del priceListItem"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/price-list-items/:id",
+      "description": "Edita un producto/precio negociado.",
+      "contentType": "application/json",
+      "pathParams": {
+        "id": "UUID del priceListItem"
+      },
+      "body": {
+        "canonicalProductId": "UUID opcional",
+        "descriptionRaw": "BICO-BICO 76,0*50,0",
+        "descriptionNormalized": "bico bico 76 0 50 0",
+        "channel": "opcional",
+        "priceAmount": "0.4594",
+        "currency": "EUR",
+        "priceUnit": "M2",
+        "priceQuantityBase": "1",
+        "rawUnitLabel": "m2",
+        "normalizedUnitPrice": "0.459400",
+        "normalizedUnit": "M2",
+        "discountPercent": "0",
+        "taxPercent": "21",
+        "status": "ACTIVE",
+        "rowIndex": 1,
+        "pageNumber": 1
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/price-list-items/:id",
+      "description": "Desactiva un producto negociado. No borra fisicamente el registro.",
+      "pathParams": {
+        "id": "UUID del priceListItem"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/invoices/upload-and-validate",
+      "description": "Sube una factura y ejecuta OCR, parsing, matching y validacion automaticamente.",
+      "contentType": "multipart/form-data",
+      "formData": {
+        "file": "PDF, JPG o PNG. Max 20MB.",
+        "supplierId": "UUID del supplier",
+        "title": "Titulo opcional",
+        "invoiceNumber": "Numero opcional"
+      },
+      "requiredFields": ["file", "supplierId"],
+      "responseExample": {
+        "invoiceId": "07c769e6-c294-4fdc-aa7b-3ed8980d55e2",
+        "status": "DIFFERENCES_FOUND",
+        "billingResult": "NO_OVERCHARGE",
+        "message": "No se detectaron sobrecostes. Hay productos facturados por debajo del precio negociado.",
+        "summary": {
+          "totalItems": 6,
+          "ok": 0,
+          "overcharges": 0,
+          "undercharges": 6,
+          "notFound": 0,
+          "unitMismatches": 0,
+          "requiresReview": 0
+        },
+        "differences": [
+          {
+            "product": "BICO-BICO 76,0*50,0",
+            "negotiatedPrice": "0.459400 €/ m2",
+            "invoicedPrice": "0.433400 €/ m2",
+            "differencePercent": "-5.66%",
+            "status": "PRECIO_MENOR",
+            "severity": "INFO"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/invoices",
+      "description": "Lista facturas. Soporta filtros para dashboard.",
+      "queryParams": {
+        "supplierId": "UUID opcional",
+        "status": "InvoiceStatus opcional",
+        "billingResult": "InvoiceBillingResult opcional"
+      },
+      "examples": [
+        "/invoices",
+        "/invoices?supplierId=2c97193a-55da-419d-b0dd-d2869826e229",
+        "/invoices?billingResult=OVERCHARGED",
+        "/invoices?supplierId=2c97193a-55da-419d-b0dd-d2869826e229&billingResult=NO_OVERCHARGE"
+      ],
+      "responseShape": "Invoice[] con supplier e items"
+    },
+    {
+      "method": "GET",
+      "path": "/invoices/:id",
+      "description": "Obtiene una factura con items y datos de validacion.",
+      "pathParams": {
+        "id": "UUID de invoice"
+      },
+      "responseShape": "Invoice con supplier, items, matchedPriceListItem y canonicalProduct"
+    },
+    {
+      "method": "POST",
+      "path": "/canonical-products",
+      "description": "Crea un producto canonico. Es opcional para el flujo simple, pero util si quieres agrupar productos equivalentes.",
+      "contentType": "application/json",
+      "body": {
+        "name": "BICO-BICO",
+        "description": "Producto base",
+        "category": "Carton",
+        "defaultUnit": "M2"
+      },
+      "requiredFields": ["name"]
+    },
+    {
+      "method": "GET",
+      "path": "/canonical-products",
+      "description": "Lista productos canonicos.",
+      "responseShape": "CanonicalProduct[] con aliases"
+    },
+    {
+      "method": "GET",
+      "path": "/canonical-products/:id",
+      "description": "Obtiene producto canonico con aliases y priceItems.",
+      "pathParams": {
+        "id": "UUID de canonicalProduct"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/canonical-products/:id",
+      "description": "Edita producto canonico.",
+      "contentType": "application/json",
+      "pathParams": {
+        "id": "UUID de canonicalProduct"
+      },
+      "body": {
+        "name": "BICO-BICO",
+        "description": "Producto base",
+        "category": "Carton",
+        "defaultUnit": "M2"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/canonical-products/:id",
+      "description": "Borra producto canonico.",
+      "pathParams": {
+        "id": "UUID de canonicalProduct"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/supplier-product-aliases",
+      "description": "Crea alias de producto para mejorar matching entre factura y lista negociada.",
+      "contentType": "application/json",
+      "body": {
+        "supplierId": "UUID del supplier",
+        "canonicalProductId": "UUID opcional",
+        "priceListItemId": "UUID opcional",
+        "aliasRaw": "BICO BICO 76X50",
+        "aliasNormalized": "bico bico 76x50",
+        "confidence": "1.0000"
+      },
+      "requiredFields": ["supplierId", "aliasRaw"]
+    },
+    {
+      "method": "GET",
+      "path": "/supplier-product-aliases",
+      "description": "Lista aliases de productos.",
+      "responseShape": "SupplierProductAlias[] con supplier, canonicalProduct y priceListItem"
+    },
+    {
+      "method": "GET",
+      "path": "/supplier-product-aliases/:id",
+      "description": "Obtiene un alias de producto.",
+      "pathParams": {
+        "id": "UUID del alias"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/supplier-product-aliases/:id",
+      "description": "Edita un alias de producto.",
+      "contentType": "application/json",
+      "pathParams": {
+        "id": "UUID del alias"
+      },
+      "body": {
+        "supplierId": "UUID del supplier",
+        "canonicalProductId": "UUID opcional",
+        "priceListItemId": "UUID opcional",
+        "aliasRaw": "BICO BICO 76X50",
+        "aliasNormalized": "bico bico 76x50",
+        "confidence": "1.0000"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/supplier-product-aliases/:id",
+      "description": "Borra un alias de producto.",
+      "pathParams": {
+        "id": "UUID del alias"
+      }
+    }
+  ],
+  "frontendInterpretationRules": {
+    "invoice.billingResult.OK": "Factura correcta, sin diferencias.",
+    "invoice.billingResult.NO_OVERCHARGE": "No hay sobrecostes. Puede haber precios menores a favor del comprador.",
+    "invoice.billingResult.OVERCHARGED": "Hay al menos un producto cobrado por encima del precio negociado. Debe resaltarse como alerta critica.",
+    "invoice.billingResult.NEEDS_REVIEW": "Hay datos incompletos, productos no encontrados, unidades incompatibles o fallo del proceso.",
+    "difference.severity.CRITICAL": "Mostrar como error/alerta fuerte.",
+    "difference.severity.REVIEW": "Mostrar como advertencia que requiere revision.",
+    "difference.severity.INFO": "Mostrar como informacion, normalmente precio menor."
+  },
+  "curlExamples": {
+    "uploadInvoiceBash": "curl -X POST \"http://localhost:3000/invoices/upload-and-validate\" -F \"supplierId=SUPPLIER_ID\" -F \"file=@/ruta/factura.pdf;type=application/pdf\"",
+    "uploadPriceListBash": "curl -X POST \"http://localhost:3000/price-lists/upload\" -F \"supplierId=SUPPLIER_ID\" -F \"title=Lista negociada\" -F \"file=@/ruta/lista.pdf;type=application/pdf\"",
+    "createManualPriceItem": "curl -X POST \"http://localhost:3000/price-list-items\" -H \"Content-Type: application/json\" -d '{\"priceListId\":\"PRICE_LIST_ID\",\"supplierId\":\"SUPPLIER_ID\",\"descriptionRaw\":\"BICO-BICO 76,0*50,0\",\"priceAmount\":\"0.4594\",\"priceUnit\":\"M2\",\"priceQuantityBase\":\"1\"}'"
+  },
+  "notesForFrontendPrompt": [
+    "Mantener el frontend simple: las facturas no se editan.",
+    "El usuario debe poder consultar la factura original y ver el resultado de revision calculado por el backend.",
+    "La entidad editable principal es el supplier y sus priceListItems negociados.",
+    "El endpoint principal para subir facturas es POST /invoices/upload-and-validate.",
+    "Para dashboard, usar billingResult como estado de negocio principal y status como estado tecnico del proceso.",
+    "Para productos del dashboard de supplier, usar GET /suppliers/:id/products."
+  ]
+}
