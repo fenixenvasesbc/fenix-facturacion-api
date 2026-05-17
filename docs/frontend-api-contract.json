@@ -5,7 +5,7 @@
   "frontendGoal": "El frontend debe permitir gestionar proveedores, listas de precios negociadas, productos negociados y subir facturas para validar si hubo sobrecostes.",
   "mainFlow": [
     "Crear o seleccionar un supplier.",
-    "Cargar una lista de precios del supplier o crear items manualmente.",
+    "Cargar una lista de precios del supplier o crear una lista manual para agregar items.",
     "Subir una factura con supplierId.",
     "Mostrar billingResult, summary y differences.",
     "Consultar historial de facturas filtrando por supplierId o billingResult."
@@ -79,6 +79,7 @@
         "GET /suppliers/:id/products",
         "GET /suppliers/:id/aliases",
         "GET /price-lists",
+        "POST /price-lists",
         "POST /price-list-items"
       ]
     },
@@ -188,6 +189,23 @@
       "pathParams": {
         "id": "UUID del supplier"
       }
+    },
+    {
+      "method": "POST",
+      "path": "/price-lists",
+      "description": "Crea una lista de precios manual vacia para un proveedor. Permite agregar productos despues con POST /price-list-items sin subir documento.",
+      "contentType": "application/json",
+      "body": {
+        "supplierId": "UUID del supplier",
+        "title": "Lista manual opcional"
+      },
+      "requiredFields": ["supplierId"],
+      "responseShape": "PriceList con supplier e items vacios",
+      "notes": [
+        "La lista se crea con status READY.",
+        "No ejecuta OCR ni parsing.",
+        "Usar el id devuelto como priceListId al crear productos manuales."
+      ]
     },
     {
       "method": "POST",

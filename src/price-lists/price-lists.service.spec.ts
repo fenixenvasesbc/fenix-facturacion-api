@@ -87,6 +87,45 @@ describe('PriceListsService', () => {
     expect(service).toBeDefined();
   });
 
+  it('creates a manual price list without running OCR or parsing', async () => {
+    const manualPriceList = {
+      id: 'manual-price-list-id',
+      supplierId: 'supplier-id',
+      title: 'Lista manual',
+      status: 'READY',
+      supplier: {
+        id: 'supplier-id',
+      },
+      items: [],
+    };
+
+    prisma.supplier.findUnique.mockResolvedValue({ id: 'supplier-id' });
+    prisma.priceList.create.mockResolvedValue(manualPriceList);
+
+    const result = await service.createManual({
+      supplierId: 'supplier-id',
+      title: 'Lista manual',
+    });
+
+    expect(prisma.priceList.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        supplierId: 'supplier-id',
+        title: 'Lista manual',
+        status: 'READY',
+        rawData: expect.objectContaining({
+          source: 'manual',
+        }),
+      }),
+      include: {
+        supplier: true,
+        items: true,
+      },
+    });
+    expect(ocrService.extractText).not.toHaveBeenCalled();
+    expect(priceListParser.parse).not.toHaveBeenCalled();
+    expect(result).toEqual(manualPriceList);
+  });
+
   it('runs OCR and parsing automatically after upload', async () => {
     const priceList = {
       id: 'price-list-id',
