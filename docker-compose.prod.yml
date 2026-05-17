@@ -1,0 +1,70 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fenix_facturacion_api
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3000}
+      DATABASE_URL: ${DATABASE_URL}
+      OCR_SERVICE_URL: ${OCR_SERVICE_URL:-http://ocr:8000/ocr}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    restart: unless-stopped
+    command: ['sh', '-c', 'pnpm prisma migrate deploy && node dist/src/main.js']
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      ocr:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - nginx-proxy-manager-zr1y_default
+      - fenix_facturacion_internal
+
+  ocr:
+    build:
+      context: ./ocr-service
+      dockerfile: Dockerfile
+    container_name: fenix_facturacion_ocr
+    restart: unless-stopped
+    volumes:
+      - ocr_models:/root/.paddleocr
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - fenix_facturacion_internal
+
+volumes:
+  ocr_models:
+
+networks:
+  nginx-proxy-manager-zr1y_default:
+    external: true
+  fenix_facturacion_internal:
+    driver: bridge
