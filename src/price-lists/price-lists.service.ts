@@ -10,6 +10,7 @@ import { DocumentExtractionService } from '../document-extraction/document-extra
 import { OcrService } from '../ocr/ocr.service';
 import { PriceListParserService } from '../price-list-parser/price-list-parser.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreatePriceListDto } from './dto/create-price-list.dto';
 import { UploadPriceListDto } from './dto/upload-price-list.dto';
 
 @Injectable()
@@ -22,6 +23,46 @@ export class PriceListsService {
     private readonly priceListParser: PriceListParserService,
     private readonly documentExtraction: DocumentExtractionService,
   ) {}
+
+  async createManual(dto: CreatePriceListDto) {
+    this.logger.log(`Creating manual price list. supplierId=${dto.supplierId}`);
+
+    const supplier = await this.prisma.supplier.findUnique({
+      where: {
+        id: dto.supplierId,
+      },
+    });
+
+    if (!supplier) {
+      this.logger.warn(
+        `Supplier not found during manual price list creation. supplierId=${dto.supplierId}`,
+      );
+
+      throw new NotFoundException('Proveedor no encontrado');
+    }
+
+    const priceList = await this.prisma.priceList.create({
+      data: {
+        supplierId: dto.supplierId,
+        title: dto.title ?? 'Lista manual',
+        status: PriceListStatus.READY,
+        rawData: {
+          source: 'manual',
+          createdAt: new Date().toISOString(),
+        },
+      },
+      include: {
+        supplier: true,
+        items: true,
+      },
+    });
+
+    this.logger.log(
+      `Manual price list created successfully. priceListId=${priceList.id}`,
+    );
+
+    return priceList;
+  }
 
   async upload(dto: UploadPriceListDto, file: Express.Multer.File) {
     this.logger.log(

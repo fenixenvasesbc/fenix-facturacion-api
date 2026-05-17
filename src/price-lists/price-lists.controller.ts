@@ -16,6 +16,7 @@ import { randomUUID } from 'node:crypto';
 import { extname } from 'path';
 
 import { PriceListsService } from './price-lists.service';
+import { CreatePriceListDto } from './dto/create-price-list.dto';
 import { UploadPriceListDto } from './dto/upload-price-list.dto';
 
 @Controller('price-lists')
@@ -23,6 +24,15 @@ export class PriceListsController {
   private readonly logger = new Logger(PriceListsController.name);
 
   constructor(private readonly priceListsService: PriceListsService) {}
+
+  @Post()
+  create(@Body() dto: CreatePriceListDto) {
+    this.logger.debug(
+      `POST /price-lists received. supplierId=${dto.supplierId}`,
+    );
+
+    return this.priceListsService.createManual(dto);
+  }
 
   @Post('upload')
   @UseInterceptors(
