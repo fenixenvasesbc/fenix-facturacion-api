@@ -144,4 +144,64 @@ describe('InvoiceValidationService', () => {
       ],
     });
   });
+
+  it('uses the newest negotiated item when duplicate matches have the same score', () => {
+    const oldDate = new Date('2026-01-01T00:00:00.000Z');
+    const newDate = new Date('2026-02-01T00:00:00.000Z');
+    const baseNegotiatedItem = {
+      id: 'old-price-list-item-id',
+      priceListId: 'price-list-id',
+      supplierId: 'supplier-id',
+      canonicalProductId: null,
+      descriptionRaw: 'KRAFT-BICO',
+      descriptionNormalized: 'kraft bico',
+      channel: null,
+      priceAmount: '0.4591',
+      currency: 'EUR',
+      priceUnit: PriceUnit.M2,
+      priceQuantityBase: '1',
+      rawUnitLabel: 'm2',
+      normalizedUnitPrice: '0.4591',
+      normalizedUnit: PriceUnit.M2,
+      discountPercent: null,
+      taxPercent: null,
+      status: PriceItemStatus.ACTIVE,
+      rowIndex: null,
+      pageNumber: null,
+      rawData: null,
+      createdAt: oldDate,
+      updatedAt: oldDate,
+      canonicalProduct: null,
+      aliases: [],
+    };
+
+    const result = service.validate(
+      [
+        {
+          descriptionRaw: 'KRAFT-BICO',
+          descriptionNormalized: 'kraft bico',
+          unit: PriceUnit.M2,
+          unitPrice: '0.479100',
+          currency: 'EUR',
+          rowIndex: 0,
+          rawData: {},
+        },
+      ],
+      [
+        baseNegotiatedItem,
+        {
+          ...baseNegotiatedItem,
+          id: 'new-price-list-item-id',
+          priceAmount: '0.5078',
+          normalizedUnitPrice: '0.5078',
+          updatedAt: newDate,
+        },
+      ],
+    );
+
+    expect(result.response.differences[0]).toMatchObject({
+      negotiatedPrice: '0.507800 €/ m2',
+      status: InvoiceItemValidationStatus.PRECIO_MENOR,
+    });
+  });
 });

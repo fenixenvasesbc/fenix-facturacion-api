@@ -293,6 +293,9 @@ export class InvoicesService {
         canonicalProduct: true,
         aliases: true,
       },
+      orderBy: {
+        updatedAt: 'desc',
+      },
     });
 
     const validation = this.invoiceValidation.validate(

@@ -127,13 +127,23 @@ export class InvoiceValidationService {
     for (const item of activeItems) {
       const score = this.matchScore(invoiceItem.descriptionNormalized, item);
 
-      if (score > bestScore) {
+      if (
+        score > bestScore ||
+        (score === bestScore &&
+          score > 0 &&
+          bestMatch &&
+          this.isNewer(item, bestMatch))
+      ) {
         bestScore = score;
         bestMatch = item;
       }
     }
 
     return bestScore >= 0.55 ? bestMatch : undefined;
+  }
+
+  private isNewer(left: NegotiatedItem, right: NegotiatedItem) {
+    return left.updatedAt.getTime() > right.updatedAt.getTime();
   }
 
   private matchScore(description: string, item: NegotiatedItem) {

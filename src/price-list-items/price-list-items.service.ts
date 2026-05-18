@@ -124,7 +124,22 @@ export class PriceListItemsService {
   async update(id: string, dto: UpdatePriceListItemDto) {
     this.logger.log(`Updating price list item. priceListItemId=${id}`);
 
-    await this.findOne(id);
+    const currentItem = await this.findOne(id);
+    const priceQuantityBase =
+      dto.priceQuantityBase ?? currentItem.priceQuantityBase.toString();
+    const normalizedUnitPrice =
+      dto.normalizedUnitPrice ??
+      (dto.priceAmount !== undefined || dto.priceQuantityBase !== undefined
+        ? this.calculateNormalizedUnitPrice(
+            dto.priceAmount ?? currentItem.priceAmount.toString(),
+            priceQuantityBase,
+          )
+        : undefined);
+    const normalizedUnit =
+      dto.normalizedUnit ??
+      (dto.priceUnit !== undefined
+        ? this.defaultNormalizedUnit(dto.priceUnit)
+        : undefined);
 
     return this.prisma.priceListItem.update({
       where: {
@@ -140,8 +155,8 @@ export class PriceListItemsService {
         priceUnit: dto.priceUnit,
         priceQuantityBase: dto.priceQuantityBase,
         rawUnitLabel: dto.rawUnitLabel,
-        normalizedUnitPrice: dto.normalizedUnitPrice,
-        normalizedUnit: dto.normalizedUnit,
+        normalizedUnitPrice,
+        normalizedUnit,
         discountPercent: dto.discountPercent,
         taxPercent: dto.taxPercent,
         status: dto.status,
