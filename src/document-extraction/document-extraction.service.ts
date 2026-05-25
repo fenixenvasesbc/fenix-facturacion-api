@@ -5,12 +5,16 @@ import {
   ExtractedPriceListItem,
 } from './document-extraction.types';
 import { MoraYGomaExtractorService } from './mora-y-goma-extractor.service';
+import { SaicaExtractorService } from './saica-extractor.service';
 
 @Injectable()
 export class DocumentExtractionService {
   private readonly logger = new Logger(DocumentExtractionService.name);
 
-  constructor(private readonly moraYGomaExtractor: MoraYGomaExtractorService) {}
+  constructor(
+    private readonly moraYGomaExtractor: MoraYGomaExtractorService,
+    private readonly saicaExtractor: SaicaExtractorService,
+  ) {}
 
   extractPriceList(input: DocumentExtractionInput): ExtractedPriceListItem[] {
     if (this.moraYGomaExtractor.supports(input)) {
@@ -29,6 +33,18 @@ export class DocumentExtractionService {
   }
 
   extractInvoice(input: DocumentExtractionInput): ExtractedInvoiceItem[] {
+    if (this.saicaExtractor.supports(input)) {
+      const items = this.saicaExtractor.extractInvoice(input);
+
+      if (items.length > 0) {
+        this.logger.log(
+          `Structured invoice extraction succeeded. extractor=saica count=${items.length}`,
+        );
+
+        return items;
+      }
+    }
+
     if (this.moraYGomaExtractor.supports(input)) {
       const items = this.moraYGomaExtractor.extractInvoice(input);
 

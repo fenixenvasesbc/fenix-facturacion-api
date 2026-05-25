@@ -171,13 +171,10 @@ export class InvoiceValidationService {
     const invoiceMatchCode = this.normalizeMatchCode(invoiceItem.matchCode);
     const itemMatchCode = this.normalizeMatchCode(item.matchCode);
 
-    if (
-      invoiceMatchCode &&
-      itemMatchCode &&
-      invoiceMatchCode === itemMatchCode
-    ) {
-      return 1;
-    }
+    const matchCodeScore =
+      invoiceMatchCode && itemMatchCode && invoiceMatchCode === itemMatchCode
+        ? 0.65
+        : 0;
 
     const candidates = [
       item.descriptionNormalized,
@@ -197,7 +194,7 @@ export class InvoiceValidationService {
 
     return Math.min(
       0.99,
-      textScore +
+      Math.max(textScore, matchCodeScore) +
         this.dimensionScore(invoiceItem, item) +
         this.channelScore(invoiceItem, item),
     );

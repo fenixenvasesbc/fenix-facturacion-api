@@ -204,7 +204,8 @@
       "notes": [
         "La lista se crea con status READY.",
         "No ejecuta OCR ni parsing.",
-        "Usar el id devuelto como priceListId al crear productos manuales."
+        "Usar el id devuelto como priceListId al crear productos manuales.",
+        "Aunque title es opcional para la API, la SPA debe pedir nombre de lista al usuario cuando crea una lista nueva."
       ]
     },
     {
@@ -218,7 +219,10 @@
         "title": "Titulo opcional"
       },
       "requiredFields": ["file", "supplierId"],
-      "responseShape": "PriceList con supplier e items"
+      "responseShape": "PriceList con supplier e items",
+      "notes": [
+        "Aunque title es opcional para la API, la SPA debe pedir nombre de lista al usuario para poder diferenciar listas del mismo proveedor."
+      ]
     },
     {
       "method": "GET",
@@ -299,7 +303,8 @@
         "Debe enviarse priceAmount o al menos una regla en prices.",
         "Si no envias descriptionNormalized, el backend la normaliza.",
         "Si no envias normalizedUnitPrice, el backend calcula priceAmount / priceQuantityBase.",
-        "Si envias prices, el backend crea reglas/tramos. Para listas simples, enviar una sola regla o usar priceAmount legacy."
+        "Si envias prices, el backend crea reglas/tramos. Para listas simples, enviar una sola regla o usar priceAmount legacy.",
+        "Para agregar productos a una lista existente, la SPA debe reutilizar el priceListId existente en vez de crear otra PriceList."
       ]
     },
     {
