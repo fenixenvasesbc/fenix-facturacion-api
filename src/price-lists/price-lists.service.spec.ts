@@ -118,7 +118,15 @@ describe('PriceListsService', () => {
       }),
       include: {
         supplier: true,
-        items: true,
+        items: {
+          include: {
+            priceRules: {
+              orderBy: {
+                minQuantity: 'asc',
+              },
+            },
+          },
+        },
       },
     });
     expect(ocrService.extractText).not.toHaveBeenCalled();

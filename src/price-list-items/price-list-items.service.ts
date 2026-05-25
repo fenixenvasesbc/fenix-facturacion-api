@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { PriceItemStatus, PriceUnit } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatePriceListItemDto } from './dto/create-price-list-item.dto';
+import {
+  CreatePriceListItemDto,
+  CreatePriceListItemPriceDto,
+} from './dto/create-price-list-item.dto';
 import { UpdatePriceListItemDto } from './dto/update-price-list-item.dto';
 
 @Injectable()
@@ -36,13 +39,27 @@ export class PriceListItemsService {
       );
     }
 
-    const priceQuantityBase = dto.priceQuantityBase ?? '1.0000';
+    const firstPrice = dto.prices?.[0];
+    const legacyPriceAmount = dto.priceAmount ?? firstPrice?.priceAmount;
+
+    if (!legacyPriceAmount) {
+      throw new BadRequestException(
+        'Debe indicar priceAmount o al menos una regla en prices',
+      );
+    }
+
+    const legacyPriceUnit =
+      dto.priceUnit ?? firstPrice?.priceUnit ?? PriceUnit.UNKNOWN;
+    const priceQuantityBase =
+      dto.priceQuantityBase ?? firstPrice?.priceQuantityBase ?? '1.0000';
     const normalizedUnitPrice =
       dto.normalizedUnitPrice ??
-      this.calculateNormalizedUnitPrice(dto.priceAmount, priceQuantityBase);
+      firstPrice?.normalizedUnitPrice ??
+      this.calculateNormalizedUnitPrice(legacyPriceAmount, priceQuantityBase);
     const normalizedUnit =
       dto.normalizedUnit ??
-      this.defaultNormalizedUnit(dto.priceUnit ?? PriceUnit.UNKNOWN);
+      firstPrice?.normalizedUnit ??
+      this.defaultNormalizedUnit(legacyPriceUnit);
 
     return this.prisma.priceListItem.create({
       data: {
@@ -54,26 +71,43 @@ export class PriceListItemsService {
           dto.descriptionNormalized ??
           this.normalizeDescription(dto.descriptionRaw),
         channel: dto.channel,
-        priceAmount: dto.priceAmount,
-        currency: dto.currency ?? 'EUR',
-        priceUnit: dto.priceUnit ?? PriceUnit.UNKNOWN,
+        matchCode: this.normalizeMatchCode(dto.matchCode),
+        lengthMm: dto.lengthMm,
+        widthMm: dto.widthMm,
+        heightMm: dto.heightMm,
+        priceAmount: legacyPriceAmount,
+        currency: dto.currency ?? firstPrice?.currency ?? 'EUR',
+        priceUnit: legacyPriceUnit,
         priceQuantityBase,
-        rawUnitLabel: dto.rawUnitLabel,
+        rawUnitLabel: dto.rawUnitLabel ?? firstPrice?.rawUnitLabel,
         normalizedUnitPrice,
         normalizedUnit,
-        discountPercent: dto.discountPercent,
-        taxPercent: dto.taxPercent,
+        discountPercent: dto.discountPercent ?? firstPrice?.discountPercent,
+        taxPercent: dto.taxPercent ?? firstPrice?.taxPercent,
         status: dto.status ?? PriceItemStatus.ACTIVE,
         rawData: {
           source: 'manual',
           createdAt: new Date().toISOString(),
         },
+        priceRules:
+          dto.prices && dto.prices.length > 0
+            ? {
+                create: dto.prices.map((price) =>
+                  this.toPriceRuleCreateInput(price),
+                ),
+              }
+            : undefined,
       },
       include: {
         supplier: true,
         priceList: true,
         canonicalProduct: true,
         aliases: true,
+        priceRules: {
+          orderBy: {
+            minQuantity: 'asc',
+          },
+        },
       },
     });
   }
@@ -92,6 +126,16 @@ export class PriceListItemsService {
         priceList: true,
         canonicalProduct: true,
         aliases: true,
+        priceRules: {
+          where: {
+            status: {
+              not: PriceItemStatus.INACTIVE,
+            },
+          },
+          orderBy: {
+            minQuantity: 'asc',
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -111,6 +155,16 @@ export class PriceListItemsService {
         priceList: true,
         canonicalProduct: true,
         aliases: true,
+        priceRules: {
+          where: {
+            status: {
+              not: PriceItemStatus.INACTIVE,
+            },
+          },
+          orderBy: {
+            minQuantity: 'asc',
+          },
+        },
       },
     });
 
@@ -141,7 +195,7 @@ export class PriceListItemsService {
         ? this.defaultNormalizedUnit(dto.priceUnit)
         : undefined);
 
-    return this.prisma.priceListItem.update({
+    const updateArgs = {
       where: {
         id,
       },
@@ -150,6 +204,13 @@ export class PriceListItemsService {
         descriptionRaw: dto.descriptionRaw,
         descriptionNormalized: dto.descriptionNormalized,
         channel: dto.channel,
+        matchCode:
+          dto.matchCode === undefined
+            ? undefined
+            : this.normalizeMatchCode(dto.matchCode),
+        lengthMm: dto.lengthMm,
+        widthMm: dto.widthMm,
+        heightMm: dto.heightMm,
         priceAmount: dto.priceAmount,
         currency: dto.currency,
         priceUnit: dto.priceUnit,
@@ -168,8 +229,57 @@ export class PriceListItemsService {
         priceList: true,
         canonicalProduct: true,
         aliases: true,
+        priceRules: {
+          where: {
+            status: {
+              not: PriceItemStatus.INACTIVE,
+            },
+          },
+          orderBy: {
+            minQuantity: 'asc' as const,
+          },
+        },
       },
+    };
+
+    if (dto.prices === undefined) {
+      return this.prisma.priceListItem.update(updateArgs);
+    }
+
+    const findUniqueArgs = {
+      where: updateArgs.where,
+      include: updateArgs.include,
+    };
+
+    const updatedItem = await this.prisma.$transaction(async (tx) => {
+      await tx.priceListItem.update({
+        where: updateArgs.where,
+        data: updateArgs.data,
+      });
+
+      await tx.priceListItemPrice.deleteMany({
+        where: {
+          priceListItemId: id,
+        },
+      });
+
+      if (dto.prices && dto.prices.length > 0) {
+        await tx.priceListItemPrice.createMany({
+          data: dto.prices.map((price) => ({
+            priceListItemId: id,
+            ...this.toPriceRuleCreateInput(price),
+          })),
+        });
+      }
+
+      return tx.priceListItem.findUnique(findUniqueArgs);
     });
+
+    if (!updatedItem) {
+      throw new NotFoundException('Producto de lista de precios no encontrado');
+    }
+
+    return updatedItem;
   }
 
   async remove(id: string) {
@@ -220,5 +330,39 @@ export class PriceListItemsService {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, ' ')
       .trim();
+  }
+
+  private normalizeMatchCode(value?: string) {
+    const normalized = value?.trim();
+
+    return normalized ? normalized.toUpperCase() : undefined;
+  }
+
+  private toPriceRuleCreateInput(price: CreatePriceListItemPriceDto) {
+    const priceQuantityBase = price.priceQuantityBase ?? '1.0000';
+    const priceUnit = price.priceUnit ?? PriceUnit.UNKNOWN;
+    const normalizedUnitPrice =
+      price.normalizedUnitPrice ??
+      this.calculateNormalizedUnitPrice(price.priceAmount, priceQuantityBase);
+
+    return {
+      minQuantity: price.minQuantity,
+      maxQuantity: price.maxQuantity,
+      priceAmount: price.priceAmount,
+      currency: price.currency ?? 'EUR',
+      priceUnit,
+      priceQuantityBase,
+      rawUnitLabel: price.rawUnitLabel,
+      normalizedUnitPrice,
+      normalizedUnit:
+        price.normalizedUnit ?? this.defaultNormalizedUnit(priceUnit),
+      discountPercent: price.discountPercent,
+      taxPercent: price.taxPercent,
+      status: price.status ?? PriceItemStatus.ACTIVE,
+      rawData: {
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      },
+    };
   }
 }

@@ -41,8 +41,11 @@ type NegotiatedItem = Prisma.PriceListItemGetPayload<{
   include: {
     canonicalProduct: true;
     aliases: true;
+    priceRules: true;
   };
 }>;
+
+type NegotiatedPriceRule = NegotiatedItem['priceRules'][number];
 
 @Injectable()
 export class InvoiceValidationService {
@@ -64,21 +67,38 @@ export class InvoiceValidationService {
         return {
           invoiceItem,
           matchedItem: undefined,
+          matchedPriceRule: undefined,
           validationStatus: InvoiceItemValidationStatus.PRODUCTO_NO_ENCONTRADO,
           differencePercent: undefined,
         };
       }
 
-      if (!this.unitsAreCompatible(invoiceItem.unit, match)) {
+      const matchedPriceRule = this.findApplicablePriceRule(invoiceItem, match);
+
+      if (match.priceRules.length > 0 && !matchedPriceRule) {
         return {
           invoiceItem,
           matchedItem: match,
+          matchedPriceRule: undefined,
+          validationStatus: InvoiceItemValidationStatus.REQUIERE_REVISION,
+          differencePercent: undefined,
+        };
+      }
+
+      if (!this.unitsAreCompatible(invoiceItem.unit, match, matchedPriceRule)) {
+        return {
+          invoiceItem,
+          matchedItem: match,
+          matchedPriceRule,
           validationStatus: InvoiceItemValidationStatus.UNIDAD_INCOMPATIBLE,
           differencePercent: undefined,
         };
       }
 
-      const negotiatedPrice = this.getNegotiatedUnitPrice(match);
+      const negotiatedPrice = this.getNegotiatedUnitPrice(
+        match,
+        matchedPriceRule,
+      );
       const invoicedPrice = Number(invoiceItem.unitPrice);
       const differencePercent =
         ((invoicedPrice - negotiatedPrice) / negotiatedPrice) * 100;
@@ -87,6 +107,7 @@ export class InvoiceValidationService {
       return {
         invoiceItem,
         matchedItem: match,
+        matchedPriceRule,
         validationStatus,
         differencePercent,
       };
@@ -125,7 +146,7 @@ export class InvoiceValidationService {
     let bestScore = 0;
 
     for (const item of activeItems) {
-      const score = this.matchScore(invoiceItem.descriptionNormalized, item);
+      const score = this.matchScore(invoiceItem, item);
 
       if (
         score > bestScore ||
@@ -146,7 +167,18 @@ export class InvoiceValidationService {
     return left.updatedAt.getTime() > right.updatedAt.getTime();
   }
 
-  private matchScore(description: string, item: NegotiatedItem) {
+  private matchScore(invoiceItem: ParsedInvoiceItem, item: NegotiatedItem) {
+    const invoiceMatchCode = this.normalizeMatchCode(invoiceItem.matchCode);
+    const itemMatchCode = this.normalizeMatchCode(item.matchCode);
+
+    if (
+      invoiceMatchCode &&
+      itemMatchCode &&
+      invoiceMatchCode === itemMatchCode
+    ) {
+      return 1;
+    }
+
     const candidates = [
       item.descriptionNormalized,
       item.descriptionRaw,
@@ -156,12 +188,55 @@ export class InvoiceValidationService {
       .filter(Boolean)
       .map((value) => this.normalize(String(value)));
 
-    return Math.max(
+    const textScore = Math.max(
       ...candidates.map((candidate) =>
-        this.tokenSimilarity(description, candidate),
+        this.tokenSimilarity(invoiceItem.descriptionNormalized, candidate),
       ),
       0,
     );
+
+    return Math.min(
+      0.99,
+      textScore +
+        this.dimensionScore(invoiceItem, item) +
+        this.channelScore(invoiceItem, item),
+    );
+  }
+
+  private dimensionScore(invoiceItem: ParsedInvoiceItem, item: NegotiatedItem) {
+    const invoiceDimensions = [
+      invoiceItem.lengthMm,
+      invoiceItem.widthMm,
+      invoiceItem.heightMm,
+    ];
+    const itemDimensions = [item.lengthMm, item.widthMm, item.heightMm];
+
+    if (
+      invoiceDimensions.some((value) => value === undefined) ||
+      itemDimensions.some((value) => value === null)
+    ) {
+      return 0;
+    }
+
+    const allMatch = invoiceDimensions.every((value, index) => {
+      const invoiceValue = Number(value);
+      const itemValue = Number(itemDimensions[index]?.toString());
+
+      return Number.isFinite(invoiceValue) && invoiceValue === itemValue;
+    });
+
+    return allMatch ? 0.1 : -0.15;
+  }
+
+  private channelScore(invoiceItem: ParsedInvoiceItem, item: NegotiatedItem) {
+    if (!invoiceItem.channel || !item.channel) {
+      return 0;
+    }
+
+    return invoiceItem.channel.trim().toUpperCase() ===
+      item.channel.trim().toUpperCase()
+      ? 0.05
+      : -0.1;
   }
 
   private tokenSimilarity(left: string, right: string) {
@@ -187,8 +262,11 @@ export class InvoiceValidationService {
   private unitsAreCompatible(
     invoiceUnit: PriceUnit,
     negotiatedItem: NegotiatedItem,
+    priceRule?: NegotiatedPriceRule,
   ) {
     const negotiatedUnit =
+      priceRule?.normalizedUnit ??
+      priceRule?.priceUnit ??
       negotiatedItem.normalizedUnit ??
       negotiatedItem.priceUnit ??
       PriceUnit.UNKNOWN;
@@ -203,16 +281,76 @@ export class InvoiceValidationService {
     return invoiceUnit === negotiatedUnit;
   }
 
-  private getNegotiatedUnitPrice(item: NegotiatedItem) {
-    const normalizedUnitPrice = item.normalizedUnitPrice?.toString();
+  private findApplicablePriceRule(
+    invoiceItem: ParsedInvoiceItem,
+    negotiatedItem: NegotiatedItem,
+  ) {
+    const activeRules = negotiatedItem.priceRules.filter(
+      (rule) => rule.status === PriceItemStatus.ACTIVE,
+    );
+
+    if (activeRules.length === 0) {
+      return undefined;
+    }
+
+    const quantity =
+      invoiceItem.quantity === undefined
+        ? undefined
+        : Number(invoiceItem.quantity);
+
+    if (quantity === undefined || !Number.isFinite(quantity)) {
+      const baseRules = activeRules.filter(
+        (rule) => !rule.minQuantity && !rule.maxQuantity,
+      );
+
+      return baseRules.length === 1 ? baseRules[0] : undefined;
+    }
+
+    const invoiceQuantity: number = quantity;
+
+    return activeRules
+      .filter((rule) => {
+        const minQuantity = rule.minQuantity
+          ? Number(rule.minQuantity.toString())
+          : undefined;
+        const maxQuantity = rule.maxQuantity
+          ? Number(rule.maxQuantity.toString())
+          : undefined;
+
+        return (
+          (minQuantity === undefined || invoiceQuantity >= minQuantity) &&
+          (maxQuantity === undefined || invoiceQuantity <= maxQuantity)
+        );
+      })
+      .sort((left, right) => {
+        const leftMin = left.minQuantity
+          ? Number(left.minQuantity.toString())
+          : Number.NEGATIVE_INFINITY;
+        const rightMin = right.minQuantity
+          ? Number(right.minQuantity.toString())
+          : Number.NEGATIVE_INFINITY;
+
+        return rightMin - leftMin;
+      })[0];
+  }
+
+  private getNegotiatedUnitPrice(
+    item: NegotiatedItem,
+    priceRule?: NegotiatedPriceRule,
+  ) {
+    const normalizedUnitPrice =
+      priceRule?.normalizedUnitPrice?.toString() ??
+      item.normalizedUnitPrice?.toString();
 
     if (normalizedUnitPrice) {
       return Number(normalizedUnitPrice);
     }
 
     return (
-      Number(item.priceAmount.toString()) /
-      Number(item.priceQuantityBase.toString())
+      Number((priceRule?.priceAmount ?? item.priceAmount).toString()) /
+      Number(
+        (priceRule?.priceQuantityBase ?? item.priceQuantityBase).toString(),
+      )
     );
   }
 
@@ -231,15 +369,23 @@ export class InvoiceValidationService {
   private toDifference(item: {
     invoiceItem: ParsedInvoiceItem;
     matchedItem?: NegotiatedItem;
+    matchedPriceRule?: NegotiatedPriceRule;
     validationStatus: InvoiceItemValidationStatus;
     differencePercent?: number;
   }): InvoiceDifference {
+    const negotiatedUnit =
+      item.matchedPriceRule?.normalizedUnit ??
+      item.matchedPriceRule?.priceUnit ??
+      item.matchedItem?.normalizedUnit ??
+      item.matchedItem?.priceUnit ??
+      PriceUnit.UNKNOWN;
+
     return {
       product: item.invoiceItem.descriptionRaw,
       negotiatedPrice: item.matchedItem
-        ? `${this.decimalString(this.getNegotiatedUnitPrice(item.matchedItem), 6)} €/ ${this.unitLabel(item.matchedItem.normalizedUnit ?? item.matchedItem.priceUnit)}`
+        ? `${this.decimalString(this.getNegotiatedUnitPrice(item.matchedItem, item.matchedPriceRule), 6)} EUR/ ${this.unitLabel(negotiatedUnit)}`
         : null,
-      invoicedPrice: `${item.invoiceItem.unitPrice} €/ ${this.unitLabel(item.invoiceItem.unit)}`,
+      invoicedPrice: `${item.invoiceItem.unitPrice} EUR/ ${this.unitLabel(item.invoiceItem.unit)}`,
       differencePercent:
         item.differencePercent === undefined
           ? null
@@ -356,5 +502,11 @@ export class InvoiceValidationService {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, ' ')
       .trim();
+  }
+
+  private normalizeMatchCode(value?: string | null) {
+    const normalized = value?.trim();
+
+    return normalized ? normalized.toUpperCase() : undefined;
   }
 }

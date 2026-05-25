@@ -32,6 +32,10 @@ describe('InvoiceValidationService', () => {
           priceListId: 'price-list-id',
           supplierId: 'supplier-id',
           canonicalProductId: null,
+          matchCode: null,
+          lengthMm: null,
+          widthMm: null,
+          heightMm: null,
           descriptionRaw: 'Tornillo zincado 4x40',
           descriptionNormalized: 'tornillo zincado 4x40',
           channel: null,
@@ -52,6 +56,7 @@ describe('InvoiceValidationService', () => {
           updatedAt: new Date(),
           canonicalProduct: null,
           aliases: [],
+          priceRules: [],
         },
       ],
     );
@@ -97,6 +102,10 @@ describe('InvoiceValidationService', () => {
           priceListId: 'price-list-id',
           supplierId: 'supplier-id',
           canonicalProductId: null,
+          matchCode: null,
+          lengthMm: null,
+          widthMm: null,
+          heightMm: null,
           descriptionRaw: 'Tornillo zincado 4x40',
           descriptionNormalized: 'tornillo zincado 4x40',
           channel: null,
@@ -117,6 +126,7 @@ describe('InvoiceValidationService', () => {
           updatedAt: new Date(),
           canonicalProduct: null,
           aliases: [],
+          priceRules: [],
         },
       ],
     );
@@ -153,6 +163,10 @@ describe('InvoiceValidationService', () => {
       priceListId: 'price-list-id',
       supplierId: 'supplier-id',
       canonicalProductId: null,
+      matchCode: null,
+      lengthMm: null,
+      widthMm: null,
+      heightMm: null,
       descriptionRaw: 'KRAFT-BICO',
       descriptionNormalized: 'kraft bico',
       channel: null,
@@ -173,6 +187,7 @@ describe('InvoiceValidationService', () => {
       updatedAt: oldDate,
       canonicalProduct: null,
       aliases: [],
+      priceRules: [],
     };
 
     const result = service.validate(
@@ -200,8 +215,103 @@ describe('InvoiceValidationService', () => {
     );
 
     expect(result.response.differences[0]).toMatchObject({
-      negotiatedPrice: '0.507800 €/ m2',
+      negotiatedPrice: '0.507800 EUR/ m2',
       status: InvoiceItemValidationStatus.PRECIO_MENOR,
+    });
+  });
+
+  it('uses the applicable price rule by invoice quantity', () => {
+    const result = service.validate(
+      [
+        {
+          descriptionRaw: 'PIZZA 30 ANONIMA',
+          descriptionNormalized: 'pizza 30 anonima',
+          quantity: '25000.0000',
+          unit: PriceUnit.UNIT,
+          unitPrice: '0.140000',
+          currency: 'EUR',
+          rowIndex: 0,
+          rawData: {},
+        },
+      ],
+      [
+        {
+          id: 'price-list-item-id',
+          priceListId: 'price-list-id',
+          supplierId: 'supplier-id',
+          canonicalProductId: null,
+          matchCode: null,
+          lengthMm: null,
+          widthMm: null,
+          heightMm: null,
+          descriptionRaw: 'PIZZA 30 ANONIMA',
+          descriptionNormalized: 'pizza 30 anonima',
+          channel: null,
+          priceAmount: '141.9600',
+          currency: 'EUR',
+          priceUnit: PriceUnit.THOUSAND_UNITS,
+          priceQuantityBase: '1000',
+          rawUnitLabel: 'millar',
+          normalizedUnitPrice: '0.141960',
+          normalizedUnit: PriceUnit.UNIT,
+          discountPercent: null,
+          taxPercent: null,
+          status: PriceItemStatus.ACTIVE,
+          rowIndex: null,
+          pageNumber: null,
+          rawData: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          canonicalProduct: null,
+          aliases: [],
+          priceRules: [
+            {
+              id: 'rule-10000',
+              priceListItemId: 'price-list-item-id',
+              minQuantity: { toString: () => '10000' },
+              maxQuantity: null,
+              priceAmount: { toString: () => '141.9600' },
+              currency: 'EUR',
+              priceUnit: PriceUnit.THOUSAND_UNITS,
+              priceQuantityBase: { toString: () => '1000' },
+              rawUnitLabel: 'millar',
+              normalizedUnitPrice: { toString: () => '0.141960' },
+              normalizedUnit: PriceUnit.UNIT,
+              discountPercent: null,
+              taxPercent: null,
+              status: PriceItemStatus.ACTIVE,
+              rawData: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            {
+              id: 'rule-20000',
+              priceListItemId: 'price-list-item-id',
+              minQuantity: { toString: () => '20000' },
+              maxQuantity: null,
+              priceAmount: { toString: () => '134.2100' },
+              currency: 'EUR',
+              priceUnit: PriceUnit.THOUSAND_UNITS,
+              priceQuantityBase: { toString: () => '1000' },
+              rawUnitLabel: 'millar',
+              normalizedUnitPrice: { toString: () => '0.134210' },
+              normalizedUnit: PriceUnit.UNIT,
+              discountPercent: null,
+              taxPercent: null,
+              status: PriceItemStatus.ACTIVE,
+              rawData: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ],
+        },
+      ],
+    );
+
+    expect(result.items[0].matchedPriceRule?.id).toBe('rule-20000');
+    expect(result.response.differences[0]).toMatchObject({
+      negotiatedPrice: '0.134210 EUR/ ud',
+      status: InvoiceItemValidationStatus.SOBRECOSTE,
     });
   });
 });

@@ -7,14 +7,12 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
-  const corsOrigin = process.env.CORS_ORIGIN;
-
-  if (corsOrigin) {
-    app.enableCors({
-      origin: corsOrigin.split(',').map((origin) => origin.trim()),
-      credentials: true,
-    });
-  }
+  // Temporal para pruebas locales desde la SPA.
+  // Volver a CORS_ORIGIN antes de desplegar en produccion.
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({

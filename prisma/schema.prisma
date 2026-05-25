@@ -134,7 +134,11 @@ model PriceListItem {
   descriptionRaw        String
   descriptionNormalized String?
 
+  matchCode String?
   channel String?
+  lengthMm Decimal? @db.Decimal(14, 4)
+  widthMm  Decimal? @db.Decimal(14, 4)
+  heightMm Decimal? @db.Decimal(14, 4)
 
   priceAmount       Decimal  @db.Decimal(14, 4)
   currency          String   @default("EUR")
@@ -159,14 +163,52 @@ model PriceListItem {
   updatedAt DateTime @updatedAt
 
   aliases SupplierProductAlias[]
+  priceRules PriceListItemPrice[]
   invoiceItems InvoiceItem[]
 
   @@index([priceListId])
   @@index([supplierId])
   @@index([canonicalProductId])
+  @@index([matchCode])
   @@index([descriptionNormalized])
   @@index([priceUnit])
   @@index([channel])
+}
+
+model PriceListItemPrice {
+  id String @id @default(uuid())
+
+  priceListItemId String
+  priceListItem   PriceListItem @relation(fields: [priceListItemId], references: [id], onDelete: Cascade)
+
+  minQuantity Decimal? @db.Decimal(14, 4)
+  maxQuantity Decimal? @db.Decimal(14, 4)
+
+  priceAmount       Decimal   @db.Decimal(14, 4)
+  currency          String    @default("EUR")
+  priceUnit         PriceUnit @default(UNKNOWN)
+  priceQuantityBase Decimal   @default(1) @db.Decimal(14, 4)
+  rawUnitLabel      String?
+
+  normalizedUnitPrice Decimal?  @db.Decimal(14, 6)
+  normalizedUnit      PriceUnit?
+
+  discountPercent Decimal? @db.Decimal(8, 4)
+  taxPercent      Decimal? @db.Decimal(8, 4)
+
+  status PriceItemStatus @default(ACTIVE)
+
+  rawData Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invoiceItems InvoiceItem[]
+
+  @@index([priceListItemId])
+  @@index([minQuantity])
+  @@index([maxQuantity])
+  @@index([status])
 }
 
 model CanonicalProduct {
@@ -264,11 +306,19 @@ model InvoiceItem {
   matchedPriceListItemId String?
   matchedPriceListItem   PriceListItem? @relation(fields: [matchedPriceListItemId], references: [id], onDelete: SetNull)
 
+  matchedPriceListItemPriceId String?
+  matchedPriceListItemPrice   PriceListItemPrice? @relation(fields: [matchedPriceListItemPriceId], references: [id], onDelete: SetNull)
+
   canonicalProductId String?
   canonicalProduct   CanonicalProduct? @relation(fields: [canonicalProductId], references: [id], onDelete: SetNull)
 
   descriptionRaw        String
   descriptionNormalized String?
+  matchCode             String?
+
+  lengthMm Decimal? @db.Decimal(14, 4)
+  widthMm  Decimal? @db.Decimal(14, 4)
+  heightMm Decimal? @db.Decimal(14, 4)
 
   quantity Decimal? @db.Decimal(14, 4)
   unit     PriceUnit @default(UNKNOWN)
@@ -291,7 +341,9 @@ model InvoiceItem {
   @@index([invoiceId])
   @@index([supplierId])
   @@index([matchedPriceListItemId])
+  @@index([matchedPriceListItemPriceId])
   @@index([canonicalProductId])
+  @@index([matchCode])
   @@index([descriptionNormalized])
   @@index([validationStatus])
 }

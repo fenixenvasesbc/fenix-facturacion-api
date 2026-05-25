@@ -53,7 +53,15 @@ export class PriceListsService {
       },
       include: {
         supplier: true,
-        items: true,
+        items: {
+          include: {
+            priceRules: {
+              orderBy: {
+                minQuantity: 'asc',
+              },
+            },
+          },
+        },
       },
     });
 
@@ -124,7 +132,15 @@ export class PriceListsService {
       },
       include: {
         supplier: true,
-        items: true,
+        items: {
+          include: {
+            priceRules: {
+              orderBy: {
+                minQuantity: 'asc',
+              },
+            },
+          },
+        },
       },
     });
 
@@ -267,7 +283,11 @@ export class PriceListsService {
           ? structuredItems.map((item) => ({
               descriptionRaw: item.descriptionRaw,
               descriptionNormalized: item.descriptionNormalized,
+              matchCode: item.matchCode,
               channel: item.channel,
+              lengthMm: item.lengthMm,
+              widthMm: item.widthMm,
+              heightMm: item.heightMm,
               priceAmount: item.priceAmount,
               currency: item.currency,
               priceUnit: item.priceUnit,
@@ -307,7 +327,11 @@ export class PriceListsService {
             supplierId: priceList.supplierId,
             descriptionRaw: item.descriptionRaw,
             descriptionNormalized: item.descriptionNormalized,
+            matchCode: item.matchCode,
             channel: item.channel,
+            lengthMm: item.lengthMm,
+            widthMm: item.widthMm,
+            heightMm: item.heightMm,
             priceAmount: item.priceAmount,
             currency: item.currency,
             priceUnit: item.priceUnit,

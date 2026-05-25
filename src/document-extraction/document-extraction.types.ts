@@ -9,7 +9,11 @@ export interface DocumentExtractionInput {
 export interface ExtractedPriceListItem {
   descriptionRaw: string;
   descriptionNormalized: string;
+  matchCode?: string;
   channel?: string;
+  lengthMm?: string;
+  widthMm?: string;
+  heightMm?: string;
   priceAmount: string;
   currency: string;
   priceUnit: PriceUnit;
@@ -27,6 +31,10 @@ export interface ExtractedPriceListItem {
 export interface ExtractedInvoiceItem {
   descriptionRaw: string;
   descriptionNormalized: string;
+  matchCode?: string;
+  lengthMm?: string;
+  widthMm?: string;
+  heightMm?: string;
   reference?: string;
   size?: string;
   channel?: string;

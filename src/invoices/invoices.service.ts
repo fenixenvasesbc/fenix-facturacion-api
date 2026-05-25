@@ -4,7 +4,12 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { InvoiceBillingResult, InvoiceStatus, Prisma } from '@prisma/client';
+import {
+  InvoiceBillingResult,
+  InvoiceStatus,
+  PriceItemStatus,
+  Prisma,
+} from '@prisma/client';
 import { DocumentExtractionService } from '../document-extraction/document-extraction.service';
 import { OcrService } from '../ocr/ocr.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -83,6 +88,7 @@ export class InvoicesService {
         items: {
           include: {
             matchedPriceListItem: true,
+            matchedPriceListItemPrice: true,
             canonicalProduct: true,
           },
         },
@@ -231,6 +237,11 @@ export class InvoicesService {
         ? structuredItems.map((item) => ({
             descriptionRaw: item.descriptionRaw,
             descriptionNormalized: item.descriptionNormalized,
+            matchCode: item.matchCode,
+            channel: item.channel,
+            lengthMm: item.lengthMm,
+            widthMm: item.widthMm,
+            heightMm: item.heightMm,
             quantity: item.quantity,
             unit: item.unit,
             unitPrice: item.unitPrice,
@@ -243,6 +254,7 @@ export class InvoicesService {
               reference: item.reference,
               size: item.size,
               channel: item.channel,
+              matchCode: item.matchCode,
               confidence: item.confidence,
               warnings: item.warnings,
             },
@@ -292,6 +304,16 @@ export class InvoicesService {
       include: {
         canonicalProduct: true,
         aliases: true,
+        priceRules: {
+          where: {
+            status: {
+              not: PriceItemStatus.INACTIVE,
+            },
+          },
+          orderBy: {
+            minQuantity: 'asc',
+          },
+        },
       },
       orderBy: {
         updatedAt: 'desc',
@@ -315,8 +337,13 @@ export class InvoicesService {
           supplierId: invoice.supplierId,
           matchedPriceListItemId: item.matchedItem?.id,
           canonicalProductId: item.matchedItem?.canonicalProductId,
+          matchedPriceListItemPriceId: item.matchedPriceRule?.id,
           descriptionRaw: item.invoiceItem.descriptionRaw,
           descriptionNormalized: item.invoiceItem.descriptionNormalized,
+          matchCode: item.invoiceItem.matchCode,
+          lengthMm: item.invoiceItem.lengthMm,
+          widthMm: item.invoiceItem.widthMm,
+          heightMm: item.invoiceItem.heightMm,
           quantity: item.invoiceItem.quantity,
           unit: item.invoiceItem.unit,
           unitPrice: item.invoiceItem.unitPrice,

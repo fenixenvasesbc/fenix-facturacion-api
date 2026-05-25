@@ -1,5 +1,7 @@
 import { PriceItemStatus, PriceUnit } from '@prisma/client';
+import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsEnum,
   IsInt,
   IsNumberString,
@@ -7,7 +9,9 @@ import {
   IsString,
   IsUUID,
   MaxLength,
+  ValidateNested,
 } from 'class-validator';
+import { CreatePriceListItemPriceDto } from './create-price-list-item.dto';
 
 export class UpdatePriceListItemDto {
   @IsOptional()
@@ -28,6 +32,23 @@ export class UpdatePriceListItemDto {
   @IsString()
   @MaxLength(100)
   channel?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  matchCode?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  lengthMm?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  widthMm?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  heightMm?: string;
 
   @IsOptional()
   @IsNumberString()
@@ -78,4 +99,10 @@ export class UpdatePriceListItemDto {
   @IsOptional()
   @IsInt()
   pageNumber?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreatePriceListItemPriceDto)
+  prices?: CreatePriceListItemPriceDto[];
 }

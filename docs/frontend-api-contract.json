@@ -262,7 +262,11 @@
         "canonicalProductId": "UUID opcional",
         "descriptionRaw": "BICO-BICO 76,0*50,0",
         "descriptionNormalized": "bico bico 76 0 50 0",
+        "matchCode": "Codigo opcional para matching especifico del proveedor, por ejemplo calidad SAICA",
         "channel": "opcional",
+        "lengthMm": "300",
+        "widthMm": "300",
+        "heightMm": "40",
         "priceAmount": "0.4594",
         "currency": "EUR",
         "priceUnit": "M2",
@@ -272,18 +276,30 @@
         "normalizedUnit": "M2",
         "discountPercent": "0",
         "taxPercent": "21",
-        "status": "ACTIVE"
+        "status": "ACTIVE",
+        "prices": [
+          {
+            "minQuantity": "10000",
+            "maxQuantity": "19999",
+            "priceAmount": "141.96",
+            "currency": "EUR",
+            "priceUnit": "THOUSAND_UNITS",
+            "priceQuantityBase": "1000",
+            "rawUnitLabel": "millar"
+          }
+        ]
       },
       "requiredFields": [
         "priceListId",
         "supplierId",
-        "descriptionRaw",
-        "priceAmount"
+        "descriptionRaw"
       ],
       "notes": [
         "priceAmount y campos numericos se envian como string.",
+        "Debe enviarse priceAmount o al menos una regla en prices.",
         "Si no envias descriptionNormalized, el backend la normaliza.",
-        "Si no envias normalizedUnitPrice, el backend calcula priceAmount / priceQuantityBase."
+        "Si no envias normalizedUnitPrice, el backend calcula priceAmount / priceQuantityBase.",
+        "Si envias prices, el backend crea reglas/tramos. Para listas simples, enviar una sola regla o usar priceAmount legacy."
       ]
     },
     {
@@ -312,7 +328,11 @@
         "canonicalProductId": "UUID opcional",
         "descriptionRaw": "BICO-BICO 76,0*50,0",
         "descriptionNormalized": "bico bico 76 0 50 0",
+        "matchCode": "Codigo opcional",
         "channel": "opcional",
+        "lengthMm": "300",
+        "widthMm": "300",
+        "heightMm": "40",
         "priceAmount": "0.4594",
         "currency": "EUR",
         "priceUnit": "M2",
@@ -324,7 +344,15 @@
         "taxPercent": "21",
         "status": "ACTIVE",
         "rowIndex": 1,
-        "pageNumber": 1
+        "pageNumber": 1,
+        "prices": [
+          {
+            "minQuantity": "10000",
+            "priceAmount": "141.96",
+            "priceUnit": "THOUSAND_UNITS",
+            "priceQuantityBase": "1000"
+          }
+        ]
       }
     },
     {

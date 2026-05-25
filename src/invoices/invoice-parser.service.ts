@@ -4,6 +4,11 @@ import { PriceUnit, Prisma } from '@prisma/client';
 export interface ParsedInvoiceItem {
   descriptionRaw: string;
   descriptionNormalized: string;
+  matchCode?: string;
+  channel?: string;
+  lengthMm?: string;
+  widthMm?: string;
+  heightMm?: string;
   quantity?: string;
   unit: PriceUnit;
   unitPrice: string;

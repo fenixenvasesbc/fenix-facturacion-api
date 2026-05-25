@@ -95,6 +95,16 @@ export class SuppliersService {
         priceList: true,
         canonicalProduct: true,
         aliases: true,
+        priceRules: {
+          where: {
+            status: {
+              not: PriceItemStatus.INACTIVE,
+            },
+          },
+          orderBy: {
+            minQuantity: 'asc',
+          },
+        },
       },
       orderBy: [
         {
