@@ -289,22 +289,21 @@
             "currency": "EUR",
             "priceUnit": "THOUSAND_UNITS",
             "priceQuantityBase": "1000",
-            "rawUnitLabel": "millar"
+            "rawUnitLabel": "millar",
+            "pricingMode": "UNIT_PRICE"
           }
         ]
       },
-      "requiredFields": [
-        "priceListId",
-        "supplierId",
-        "descriptionRaw"
-      ],
+      "requiredFields": ["priceListId", "supplierId", "descriptionRaw"],
       "notes": [
         "priceAmount y campos numericos se envian como string.",
         "Debe enviarse priceAmount o al menos una regla en prices.",
         "Si no envias descriptionNormalized, el backend la normaliza.",
         "Si no envias normalizedUnitPrice, el backend calcula priceAmount / priceQuantityBase.",
+        "pricingMode puede ser UNIT_PRICE o FLAT_TOTAL. Usar FLAT_TOTAL cuando el tramo sea un importe fijo total, por ejemplo Soto hasta 1.100 hojas = 52 EUR.",
         "Si envias prices, el backend crea reglas/tramos. Para listas simples, enviar una sola regla o usar priceAmount legacy.",
-        "Para agregar productos a una lista existente, la SPA debe reutilizar el priceListId existente en vez de crear otra PriceList."
+        "Para agregar productos a una lista existente, la SPA debe reutilizar el priceListId existente en vez de crear otra PriceList.",
+        "Para Servicios Graficos Soto usar matchCode por familia: SOTO_TROQUELADO_HASTA_52X70, SOTO_TROQUELADO_MAS_52X70, SOTO_TROQUELADO_COMBO o SOTO_TROQUELADO_PIZZA."
       ]
     },
     {
@@ -355,7 +354,8 @@
             "minQuantity": "10000",
             "priceAmount": "141.96",
             "priceUnit": "THOUSAND_UNITS",
-            "priceQuantityBase": "1000"
+            "priceQuantityBase": "1000",
+            "pricingMode": "UNIT_PRICE"
           }
         ]
       }

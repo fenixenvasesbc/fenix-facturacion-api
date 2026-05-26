@@ -314,4 +314,101 @@ describe('InvoiceValidationService', () => {
       status: InvoiceItemValidationStatus.SOBRECOSTE,
     });
   });
+
+  it('supports fixed total price tiers as an effective unit price', () => {
+    const result = service.validate(
+      [
+        {
+          descriptionRaw: 'TROQUELADO VASO 7 OZ P48 CONTINENTAL-ANTICO',
+          descriptionNormalized: 'troquelado vaso 7 oz p48 continental antico',
+          matchCode: 'SOTO_TROQUELADO_HASTA_52X70',
+          quantity: '1030.0000',
+          unit: PriceUnit.UNIT,
+          unitPrice: '0.045000',
+          totalAmount: '46.3500',
+          currency: 'EUR',
+          rowIndex: 0,
+          rawData: {},
+        },
+      ],
+      [
+        {
+          id: 'soto-small-die-cut',
+          priceListId: 'price-list-id',
+          supplierId: 'supplier-id',
+          canonicalProductId: null,
+          matchCode: 'SOTO_TROQUELADO_HASTA_52X70',
+          lengthMm: null,
+          widthMm: null,
+          heightMm: null,
+          descriptionRaw: 'TARIFA TROQUELADO HASTA 52 x 70',
+          descriptionNormalized: 'tarifa troquelado hasta 52 x 70',
+          channel: null,
+          priceAmount: '52.0000',
+          currency: 'EUR',
+          priceUnit: PriceUnit.UNIT,
+          priceQuantityBase: '1',
+          rawUnitLabel: 'hoja',
+          normalizedUnitPrice: null,
+          normalizedUnit: PriceUnit.UNIT,
+          discountPercent: null,
+          taxPercent: null,
+          status: PriceItemStatus.ACTIVE,
+          rowIndex: null,
+          pageNumber: null,
+          rawData: { pricingMode: 'FLAT_TOTAL' },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          canonicalProduct: null,
+          aliases: [],
+          priceRules: [
+            {
+              id: 'flat-1100',
+              priceListItemId: 'soto-small-die-cut',
+              minQuantity: null,
+              maxQuantity: { toString: () => '1100' },
+              priceAmount: { toString: () => '52.0000' },
+              currency: 'EUR',
+              priceUnit: PriceUnit.UNIT,
+              priceQuantityBase: { toString: () => '1' },
+              rawUnitLabel: 'fijo',
+              normalizedUnitPrice: null,
+              normalizedUnit: PriceUnit.UNIT,
+              discountPercent: null,
+              taxPercent: null,
+              status: PriceItemStatus.ACTIVE,
+              rawData: { pricingMode: 'FLAT_TOTAL' },
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            {
+              id: 'unit-1101',
+              priceListItemId: 'soto-small-die-cut',
+              minQuantity: { toString: () => '1101' },
+              maxQuantity: { toString: () => '2100' },
+              priceAmount: { toString: () => '0.0450' },
+              currency: 'EUR',
+              priceUnit: PriceUnit.UNIT,
+              priceQuantityBase: { toString: () => '1' },
+              rawUnitLabel: 'hoja',
+              normalizedUnitPrice: { toString: () => '0.045000' },
+              normalizedUnit: PriceUnit.UNIT,
+              discountPercent: null,
+              taxPercent: null,
+              status: PriceItemStatus.ACTIVE,
+              rawData: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ],
+        },
+      ],
+    );
+
+    expect(result.items[0].matchedPriceRule?.id).toBe('flat-1100');
+    expect(result.response.differences[0]).toMatchObject({
+      negotiatedPrice: '52.00 EUR fijo (0.050485 EUR/ ud)',
+      status: InvoiceItemValidationStatus.PRECIO_MENOR,
+    });
+  });
 });

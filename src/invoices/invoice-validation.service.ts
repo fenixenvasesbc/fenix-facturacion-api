@@ -96,9 +96,21 @@ export class InvoiceValidationService {
       }
 
       const negotiatedPrice = this.getNegotiatedUnitPrice(
+        invoiceItem,
         match,
         matchedPriceRule,
       );
+
+      if (negotiatedPrice === undefined || negotiatedPrice <= 0) {
+        return {
+          invoiceItem,
+          matchedItem: match,
+          matchedPriceRule,
+          validationStatus: InvoiceItemValidationStatus.REQUIERE_REVISION,
+          differencePercent: undefined,
+        };
+      }
+
       const invoicedPrice = Number(invoiceItem.unitPrice);
       const differencePercent =
         ((invoicedPrice - negotiatedPrice) / negotiatedPrice) * 100;
@@ -332,9 +344,30 @@ export class InvoiceValidationService {
   }
 
   private getNegotiatedUnitPrice(
+    invoiceItem: ParsedInvoiceItem,
     item: NegotiatedItem,
     priceRule?: NegotiatedPriceRule,
   ) {
+    if (this.isFlatTotalPrice(item, priceRule)) {
+      const quantity =
+        invoiceItem.quantity === undefined
+          ? undefined
+          : Number(invoiceItem.quantity);
+
+      if (
+        quantity === undefined ||
+        !Number.isFinite(quantity) ||
+        quantity <= 0
+      ) {
+        return undefined;
+      }
+
+      return (
+        Number((priceRule?.priceAmount ?? item.priceAmount).toString()) /
+        quantity
+      );
+    }
+
     const normalizedUnitPrice =
       priceRule?.normalizedUnitPrice?.toString() ??
       item.normalizedUnitPrice?.toString();
@@ -349,6 +382,18 @@ export class InvoiceValidationService {
         (priceRule?.priceQuantityBase ?? item.priceQuantityBase).toString(),
       )
     );
+  }
+
+  private isFlatTotalPrice(
+    item: NegotiatedItem,
+    priceRule?: NegotiatedPriceRule,
+  ) {
+    const rawData = (priceRule?.rawData ?? item.rawData) as
+      | { pricingMode?: unknown }
+      | null
+      | undefined;
+
+    return rawData?.pricingMode === 'FLAT_TOTAL';
   }
 
   private resolveStatus(differencePercent: number) {
@@ -380,7 +425,12 @@ export class InvoiceValidationService {
     return {
       product: item.invoiceItem.descriptionRaw,
       negotiatedPrice: item.matchedItem
-        ? `${this.decimalString(this.getNegotiatedUnitPrice(item.matchedItem, item.matchedPriceRule), 6)} EUR/ ${this.unitLabel(negotiatedUnit)}`
+        ? this.formatNegotiatedPrice(
+            item.invoiceItem,
+            item.matchedItem,
+            item.matchedPriceRule,
+            negotiatedUnit,
+          )
         : null,
       invoicedPrice: `${item.invoiceItem.unitPrice} EUR/ ${this.unitLabel(item.invoiceItem.unit)}`,
       differencePercent:
@@ -390,6 +440,33 @@ export class InvoiceValidationService {
       status: item.validationStatus,
       severity: this.resolveSeverity(item.validationStatus),
     };
+  }
+
+  private formatNegotiatedPrice(
+    invoiceItem: ParsedInvoiceItem,
+    matchedItem: NegotiatedItem,
+    matchedPriceRule: NegotiatedPriceRule | undefined,
+    negotiatedUnit: PriceUnit,
+  ) {
+    const negotiatedPrice = this.getNegotiatedUnitPrice(
+      invoiceItem,
+      matchedItem,
+      matchedPriceRule,
+    );
+
+    if (negotiatedPrice === undefined) {
+      return null;
+    }
+
+    if (this.isFlatTotalPrice(matchedItem, matchedPriceRule)) {
+      const total = Number(
+        (matchedPriceRule?.priceAmount ?? matchedItem.priceAmount).toString(),
+      );
+
+      return `${this.decimalString(total, 2)} EUR fijo (${this.decimalString(negotiatedPrice, 6)} EUR/ ${this.unitLabel(negotiatedUnit)})`;
+    }
+
+    return `${this.decimalString(negotiatedPrice, 6)} EUR/ ${this.unitLabel(negotiatedUnit)}`;
   }
 
   private buildSummary(

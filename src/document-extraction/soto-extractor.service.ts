@@ -158,11 +158,7 @@ export class SotoExtractorService {
     return items;
   }
 
-  private parseFullLine(
-    line: string,
-    rowIndex: number,
-    pageNumber?: number,
-  ) {
+  private parseFullLine(line: string, rowIndex: number, pageNumber?: number) {
     const match =
       /^(\d{3})\s+(.+?)\s+(\d{1,3}(?:\.\d{3})*,\d+|\d+(?:,\d+)?)\s+(\d+(?:,\d+)?)\s+(\d{1,3}(?:\.\d{3})*,\d+|\d+(?:,\d+)?)$/i.exec(
         line,
@@ -283,6 +279,7 @@ export class SotoExtractorService {
     return {
       descriptionRaw,
       descriptionNormalized: this.normalize(descriptionRaw),
+      matchCode: this.resolveMatchCode(descriptionRaw),
       reference: input.code,
       quantity: this.decimalString(input.quantity, 4),
       unit: PriceUnit.UNIT,
@@ -301,6 +298,44 @@ export class SotoExtractorService {
         },
       },
     };
+  }
+
+  private resolveMatchCode(descriptionRaw: string) {
+    const normalized = this.normalize(descriptionRaw);
+
+    if (normalized.includes('combo')) {
+      return 'SOTO_TROQUELADO_COMBO';
+    }
+
+    if (normalized.includes('pizza')) {
+      return 'SOTO_TROQUELADO_PIZZA';
+    }
+
+    if (normalized.includes('vaso')) {
+      return 'SOTO_TROQUELADO_HASTA_52X70';
+    }
+
+    const size = /(\d+(?:[,.]\d+)?)\s*x\s*(\d+(?:[,.]\d+)?)/i.exec(
+      descriptionRaw,
+    );
+
+    if (!size) {
+      return 'SOTO_TROQUELADO_HASTA_52X70';
+    }
+
+    const first = this.parseLocaleNumber(size[1]);
+    const second = this.parseLocaleNumber(size[2]);
+
+    if (first === undefined || second === undefined) {
+      return 'SOTO_TROQUELADO_HASTA_52X70';
+    }
+
+    const shortSide = Math.min(first, second);
+    const longSide = Math.max(first, second);
+
+    return shortSide <= 52 && longSide <= 70
+      ? 'SOTO_TROQUELADO_HASTA_52X70'
+      : 'SOTO_TROQUELADO_MAS_52X70';
   }
 
   private validateLineMath(
@@ -338,12 +373,9 @@ export class SotoExtractorService {
   }
 
   private isEndOfItems(normalizedLine: string) {
-    return [
-      'forma de pago',
-      'base imponible',
-      'i v a',
-      'total',
-    ].some((term) => normalizedLine.startsWith(term));
+    return ['forma de pago', 'base imponible', 'i v a', 'total'].some((term) =>
+      normalizedLine.startsWith(term),
+    );
   }
 
   private isNoiseLine(normalizedLine: string) {

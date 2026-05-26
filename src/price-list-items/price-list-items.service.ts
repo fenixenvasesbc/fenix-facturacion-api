@@ -55,7 +55,12 @@ export class PriceListItemsService {
     const normalizedUnitPrice =
       dto.normalizedUnitPrice ??
       firstPrice?.normalizedUnitPrice ??
-      this.calculateNormalizedUnitPrice(legacyPriceAmount, priceQuantityBase);
+      (this.isFlatTotal(dto.pricingMode ?? firstPrice?.pricingMode)
+        ? undefined
+        : this.calculateNormalizedUnitPrice(
+            legacyPriceAmount,
+            priceQuantityBase,
+          ));
     const normalizedUnit =
       dto.normalizedUnit ??
       firstPrice?.normalizedUnit ??
@@ -87,6 +92,7 @@ export class PriceListItemsService {
         status: dto.status ?? PriceItemStatus.ACTIVE,
         rawData: {
           source: 'manual',
+          pricingMode: dto.pricingMode ?? firstPrice?.pricingMode,
           createdAt: new Date().toISOString(),
         },
         priceRules:
@@ -343,7 +349,12 @@ export class PriceListItemsService {
     const priceUnit = price.priceUnit ?? PriceUnit.UNKNOWN;
     const normalizedUnitPrice =
       price.normalizedUnitPrice ??
-      this.calculateNormalizedUnitPrice(price.priceAmount, priceQuantityBase);
+      (this.isFlatTotal(price.pricingMode)
+        ? undefined
+        : this.calculateNormalizedUnitPrice(
+            price.priceAmount,
+            priceQuantityBase,
+          ));
 
     return {
       minQuantity: price.minQuantity,
@@ -361,8 +372,13 @@ export class PriceListItemsService {
       status: price.status ?? PriceItemStatus.ACTIVE,
       rawData: {
         source: 'manual',
+        pricingMode: price.pricingMode,
         createdAt: new Date().toISOString(),
       },
     };
+  }
+
+  private isFlatTotal(pricingMode?: string) {
+    return pricingMode === 'FLAT_TOTAL';
   }
 }

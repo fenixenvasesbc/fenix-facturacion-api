@@ -50,6 +50,7 @@ BASE IMPONIBLE
     expect(items).toHaveLength(7);
     expect(items[0]).toMatchObject({
       descriptionRaw: 'TROQUELADO 68X83 COMBO KRAFT P46 24220',
+      matchCode: 'SOTO_TROQUELADO_COMBO',
       reference: '101',
       quantity: '9000.0000',
       unit: PriceUnit.UNIT,
@@ -58,6 +59,7 @@ BASE IMPONIBLE
     });
     expect(items[4]).toMatchObject({
       descriptionRaw: 'TROQUELADO VASO 7 OZ P48 CONTINENTAL-ANTICO',
+      matchCode: 'SOTO_TROQUELADO_HASTA_52X70',
       quantity: '1030.0000',
       unitPrice: '0.045000',
       totalAmount: '46.3500',
@@ -91,6 +93,7 @@ BASE IMPONIBLE
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
       descriptionRaw: 'TROQUELADO 67X104 ENVIO KRAFT P49 24152',
+      matchCode: 'SOTO_TROQUELADO_MAS_52X70',
       quantity: '2500.0000',
       unit: PriceUnit.UNIT,
       unitPrice: '0.058000',

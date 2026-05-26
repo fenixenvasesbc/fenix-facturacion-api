@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsEnum,
+  IsIn,
   IsNumberString,
   IsOptional,
   IsString,
@@ -10,6 +11,9 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
+
+export const PRICING_MODES = ['UNIT_PRICE', 'FLAT_TOTAL'] as const;
+export type PricingMode = (typeof PRICING_MODES)[number];
 
 export class CreatePriceListItemPriceDto {
   @IsOptional()
@@ -60,6 +64,10 @@ export class CreatePriceListItemPriceDto {
   @IsOptional()
   @IsEnum(PriceItemStatus)
   status?: PriceItemStatus;
+
+  @IsOptional()
+  @IsIn(PRICING_MODES)
+  pricingMode?: PricingMode;
 }
 
 export class CreatePriceListItemDto {
@@ -145,6 +153,10 @@ export class CreatePriceListItemDto {
   @IsOptional()
   @IsEnum(PriceItemStatus)
   status?: PriceItemStatus;
+
+  @IsOptional()
+  @IsIn(PRICING_MODES)
+  pricingMode?: PricingMode;
 
   @IsOptional()
   @IsArray()
