@@ -6,6 +6,7 @@ import {
 } from './document-extraction.types';
 import { MoraYGomaExtractorService } from './mora-y-goma-extractor.service';
 import { SaicaExtractorService } from './saica-extractor.service';
+import { SotoExtractorService } from './soto-extractor.service';
 
 @Injectable()
 export class DocumentExtractionService {
@@ -14,6 +15,7 @@ export class DocumentExtractionService {
   constructor(
     private readonly moraYGomaExtractor: MoraYGomaExtractorService,
     private readonly saicaExtractor: SaicaExtractorService,
+    private readonly sotoExtractor: SotoExtractorService,
   ) {}
 
   extractPriceList(input: DocumentExtractionInput): ExtractedPriceListItem[] {
@@ -51,6 +53,18 @@ export class DocumentExtractionService {
       if (items.length > 0) {
         this.logger.log(
           `Structured invoice extraction succeeded. extractor=mora-y-goma count=${items.length}`,
+        );
+
+        return items;
+      }
+    }
+
+    if (this.sotoExtractor.supports(input)) {
+      const items = this.sotoExtractor.extractInvoice(input);
+
+      if (items.length > 0) {
+        this.logger.log(
+          `Structured invoice extraction succeeded. extractor=soto count=${items.length}`,
         );
 
         return items;
