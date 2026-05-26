@@ -20,13 +20,13 @@ export class SaicaExtractorService {
   }
 
   extractInvoice(input: DocumentExtractionInput): ExtractedInvoiceItem[] {
-    const tableItems = this.extractInvoiceFromTables(input.rawData);
+    const textItems = this.extractInvoiceFromText(input.rawText ?? '');
 
-    if (tableItems.length > 0) {
-      return tableItems;
+    if (textItems.length > 0) {
+      return textItems;
     }
 
-    return this.extractInvoiceFromText(input.rawText ?? '');
+    return this.extractInvoiceFromTables(input.rawData);
   }
 
   private extractInvoiceFromTables(
@@ -225,10 +225,18 @@ export class SaicaExtractorService {
       .slice(qualityIndex + 1)
       .filter(
         (line) =>
+          !/^Canal:/i.test(line) &&
           !/^S\/ORD:/i.test(line) &&
           !/^ALB\//i.test(line) &&
           !/^\d{5,}$/.test(line) &&
-          !/^No$/i.test(line),
+          !/^No$/i.test(line) &&
+          !/^Total /i.test(line) &&
+          !/^Suma /i.test(line) &&
+          !/^Forma de pago$/i.test(line) &&
+          !/€\/millar/i.test(line) &&
+          !/^\d+(?:[,.]\d+)?x\d+(?:[,.]\d+)?(?:x\d+(?:[,.]\d+)?)?$/i.test(
+            line,
+          ),
       )
       .find((line) => /[a-z]/i.test(line));
   }
