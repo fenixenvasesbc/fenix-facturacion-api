@@ -321,7 +321,7 @@ describe('InvoiceValidationService', () => {
         {
           descriptionRaw: 'TROQUELADO VASO 7 OZ P48 CONTINENTAL-ANTICO',
           descriptionNormalized: 'troquelado vaso 7 oz p48 continental antico',
-          matchCode: 'SOTO_TROQUELADO_HASTA_52X70',
+          matchCode: 'SOTO_TROQUELADO_VASO',
           quantity: '1030.0000',
           unit: PriceUnit.UNIT,
           unitPrice: '0.045000',
@@ -333,16 +333,16 @@ describe('InvoiceValidationService', () => {
       ],
       [
         {
-          id: 'soto-small-die-cut',
+          id: 'soto-cups-die-cut',
           priceListId: 'price-list-id',
           supplierId: 'supplier-id',
           canonicalProductId: null,
-          matchCode: 'SOTO_TROQUELADO_HASTA_52X70',
+          matchCode: 'SOTO_TROQUELADO_VASO',
           lengthMm: null,
           widthMm: null,
           heightMm: null,
-          descriptionRaw: 'TARIFA TROQUELADO HASTA 52 x 70',
-          descriptionNormalized: 'tarifa troquelado hasta 52 x 70',
+          descriptionRaw: 'TARIFA TROQUELADO VASOS',
+          descriptionNormalized: 'tarifa troquelado vasos',
           channel: null,
           priceAmount: '52.0000',
           currency: 'EUR',
@@ -364,7 +364,7 @@ describe('InvoiceValidationService', () => {
           priceRules: [
             {
               id: 'flat-1100',
-              priceListItemId: 'soto-small-die-cut',
+              priceListItemId: 'soto-cups-die-cut',
               minQuantity: null,
               maxQuantity: { toString: () => '1100' },
               priceAmount: { toString: () => '52.0000' },
@@ -383,7 +383,7 @@ describe('InvoiceValidationService', () => {
             },
             {
               id: 'unit-1101',
-              priceListItemId: 'soto-small-die-cut',
+              priceListItemId: 'soto-cups-die-cut',
               minQuantity: { toString: () => '1101' },
               maxQuantity: { toString: () => '2100' },
               priceAmount: { toString: () => '0.0450' },

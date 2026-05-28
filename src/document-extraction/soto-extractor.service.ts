@@ -312,7 +312,7 @@ export class SotoExtractorService {
     }
 
     if (normalized.includes('vaso')) {
-      return 'SOTO_TROQUELADO_HASTA_52X70';
+      return 'SOTO_TROQUELADO_VASO';
     }
 
     const size = /(\d+(?:[,.]\d+)?)\s*x\s*(\d+(?:[,.]\d+)?)/i.exec(

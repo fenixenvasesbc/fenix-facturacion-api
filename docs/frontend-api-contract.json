@@ -303,7 +303,7 @@
         "pricingMode puede ser UNIT_PRICE o FLAT_TOTAL. Usar FLAT_TOTAL cuando el tramo sea un importe fijo total, por ejemplo Soto hasta 1.100 hojas = 52 EUR.",
         "Si envias prices, el backend crea reglas/tramos. Para listas simples, enviar una sola regla o usar priceAmount legacy.",
         "Para agregar productos a una lista existente, la SPA debe reutilizar el priceListId existente en vez de crear otra PriceList.",
-        "Para Servicios Graficos Soto usar matchCode por familia: SOTO_TROQUELADO_HASTA_52X70, SOTO_TROQUELADO_MAS_52X70, SOTO_TROQUELADO_COMBO o SOTO_TROQUELADO_PIZZA."
+        "Para Servicios Graficos Soto usar matchCode por familia: SOTO_TROQUELADO_HASTA_52X70, SOTO_TROQUELADO_MAS_52X70, SOTO_TROQUELADO_COMBO, SOTO_TROQUELADO_PIZZA o SOTO_TROQUELADO_VASO."
       ]
     },
     {

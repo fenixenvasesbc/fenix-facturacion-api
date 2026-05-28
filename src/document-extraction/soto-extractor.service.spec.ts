@@ -59,7 +59,7 @@ BASE IMPONIBLE
     });
     expect(items[4]).toMatchObject({
       descriptionRaw: 'TROQUELADO VASO 7 OZ P48 CONTINENTAL-ANTICO',
-      matchCode: 'SOTO_TROQUELADO_HASTA_52X70',
+      matchCode: 'SOTO_TROQUELADO_VASO',
       quantity: '1030.0000',
       unitPrice: '0.045000',
       totalAmount: '46.3500',
