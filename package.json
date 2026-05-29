@@ -21,7 +21,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "import:saica": "ts-node --transpile-only scripts/import-saica-prices.ts",
-    "import:soto": "ts-node --transpile-only scripts/import-soto-prices.ts"
+    "import:soto": "ts-node --transpile-only scripts/import-soto-prices.ts",
+    "import:drako": "ts-node --transpile-only scripts/import-drako-prices.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
