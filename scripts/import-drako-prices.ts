@@ -1,5 +1,4 @@
 import 'dotenv/config';
-import { readFile } from 'fs/promises';
 import {
   PriceItemStatus,
   PriceListStatus,
@@ -30,6 +29,168 @@ type DrakoCatalogProduct = {
 };
 
 const supplierName = 'DRAKO IMPRESORES';
+
+const catalog: DrakoCatalog = {
+  productos: [
+    {
+      categoria: 'Papel antigrasa',
+      descripcion: 'Impresion de papel antigrasa',
+      medidas: '30x40 cm',
+      precios: {
+        '5000': 110,
+        '10000': 155,
+        '15000': 220,
+      },
+    },
+    {
+      categoria: 'Papel antigrasa',
+      descripcion: 'Impresion de papel antigrasa',
+      medidas: '31x31 cm / 28x34 cm / 28x31 cm',
+      precios: {
+        '5000': 110,
+        '10000': 155,
+        '15000': 220,
+      },
+    },
+    {
+      categoria: 'Papel antigrasa',
+      descripcion: 'Impresion de papel antigrasa',
+      medidas: '16x28 cm',
+      precios: {
+        '5000': 75,
+        '10000': 105,
+        '15000': 145,
+      },
+    },
+    {
+      categoria: 'Papel antigrasa',
+      descripcion: 'Impresion de papel antigrasa (Intelpack)',
+      medidas: '25x28 cm',
+      precios: {
+        '5000': 95,
+        '10000': 135,
+        '15000': 165,
+      },
+    },
+    {
+      categoria: 'Adhesivos',
+      descripcion: 'Adhesivo redondo',
+      medida: '5 cm',
+      forma: 'Redondo',
+      precios: {
+        '1000': 45,
+        '3000': 85,
+        '5000': 125,
+      },
+    },
+    {
+      categoria: 'Adhesivos',
+      descripcion: 'Adhesivo redondo',
+      medida: '7 cm',
+      forma: 'Redondo',
+      precios: {
+        '1000': 55,
+        '3000': 95,
+        '5000': 135,
+      },
+    },
+    {
+      categoria: 'Adhesivos',
+      descripcion: 'Adhesivo cuadrado',
+      medida: '5 cm',
+      forma: 'Cuadrado',
+      precios: {
+        '1000': 45,
+        '3000': 85,
+        '5000': 125,
+      },
+    },
+    {
+      categoria: 'Adhesivos',
+      descripcion: 'Adhesivo cuadrado',
+      medida: '7 cm',
+      forma: 'Cuadrado',
+      precios: {
+        '1000': 55,
+        '3000': 95,
+        '5000': 135,
+      },
+    },
+    {
+      categoria: 'Laminas',
+      descripcion: 'Laminas 1 cara',
+      medidas: '52x70 cm',
+      precios: {
+        '500': {
+          precio_unitario: 0.33,
+          total: 165,
+        },
+        '1000': {
+          precio_unitario: 0.215,
+          total: 215,
+        },
+        '3000': {
+          precio_unitario: 0.14,
+          total: 420,
+        },
+      },
+    },
+    {
+      categoria: 'Laminas',
+      descripcion: 'Laminas 2 caras a color',
+      medidas: '52x70 cm',
+      precios: {
+        '500': {
+          precio_unitario: 0.52,
+          total: 260,
+        },
+        '1000': {
+          precio_unitario: 0.345,
+          total: 345,
+        },
+        '2000': {
+          precio_unitario: 0.206,
+          total: 412,
+        },
+        '3000': {
+          total: 620,
+        },
+        '6000': {
+          precio_unitario: 0.153,
+          total: 920,
+        },
+      },
+    },
+    {
+      categoria: 'Manteles',
+      descripcion: 'Manteles',
+      color: 'Blanco/Kraft',
+      precios: {
+        '500': 85,
+        '1000': 125,
+        '2000': 175,
+        '8000': 400,
+        '12000': 600,
+      },
+    },
+    {
+      categoria: 'Manteles',
+      descripcion: 'Manteles',
+      color: 'Blanco',
+      precios: {
+        '3000': 195,
+      },
+    },
+    {
+      categoria: 'Manteles',
+      descripcion: 'Manteles',
+      color: 'Kraft',
+      precios: {
+        '3000': 130,
+      },
+    },
+  ],
+};
 
 function normalizeDescription(value: string) {
   return value
@@ -146,18 +307,6 @@ function priceEntryValue(
 }
 
 async function main() {
-  const catalogPath = process.argv[2] ?? process.env.DRAKO_CATALOG_PATH;
-
-  if (!catalogPath) {
-    throw new Error(
-      'Indica la ruta del catalogo: pnpm run import:drako -- /ruta/catalogo_productos_drako.json',
-    );
-  }
-
-  const catalog = JSON.parse(
-    await readFile(catalogPath, 'utf8'),
-  ) as DrakoCatalog;
-
   const supplier = await prisma.supplier.upsert({
     where: {
       id:
@@ -198,7 +347,7 @@ async function main() {
       validFrom: new Date('2026-05-25T00:00:00.000Z'),
       rawData: {
         source: 'script/import-drako-prices',
-        catalogPath,
+        catalog: 'embedded',
       },
     },
   });
