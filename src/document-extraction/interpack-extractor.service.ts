@@ -41,6 +41,8 @@ export class InterpackExtractorService {
     const items: ExtractedInvoiceItem[] = [];
 
     for (const table of this.getTables(rawData)) {
+      items.push(...this.extractInvoiceFromTableRows(table));
+
       const lines = (table.rows ?? [])
         .map((row) => this.cleanCells(row).join(' '))
         .filter(Boolean);
@@ -53,6 +55,78 @@ export class InterpackExtractorService {
     }
 
     return this.dedupeItems(items);
+  }
+
+  private extractInvoiceFromTableRows(table: OcrTable) {
+    const items: ExtractedInvoiceItem[] = [];
+
+    for (const [rowIndex, row] of (table.rows ?? []).entries()) {
+      const cells = this.cleanCells(row);
+
+      if (
+        cells.length < 4 ||
+        this.isNoiseLine(this.normalize(cells.join(' ')))
+      ) {
+        continue;
+      }
+
+      const numericCells = cells
+        .map((cell, index) => ({
+          cell,
+          index,
+          value: this.parseLocaleNumber(cell),
+        }))
+        .filter(
+          (entry): entry is { cell: string; index: number; value: number } =>
+            entry.value !== undefined,
+        );
+
+      if (numericCells.length < 3) {
+        continue;
+      }
+
+      const priceCells =
+        numericCells.length >= 4 && numericCells.at(-2)?.value === 0
+          ? [numericCells.at(-4), numericCells.at(-3), numericCells.at(-1)]
+          : numericCells.slice(-3);
+      const [quantityCell, unitPriceCell, totalCell] = priceCells;
+
+      if (!quantityCell || !unitPriceCell || !totalCell) {
+        continue;
+      }
+
+      if (unitPriceCell.value < 0 || totalCell.value < 0) {
+        continue;
+      }
+
+      const productCells = cells.slice(0, quantityCell.index);
+      const reference = this.findKnownReference(cells);
+      const descriptionRaw = reference
+        ? this.knownDescriptionByReference(reference)
+        : this.findDescriptionCell(productCells);
+
+      if (!descriptionRaw && !reference) {
+        continue;
+      }
+
+      items.push(
+        this.toInvoiceItem({
+          descriptionRaw: descriptionRaw ?? reference ?? cells[0],
+          reference,
+          quantity: quantityCell.value,
+          unitPrice: unitPriceCell.value,
+          totalAmount: totalCell.value,
+          rowIndex,
+          pageNumber: table.page,
+          sourceLines: [cells.join(' | ')],
+          extractorName: 'interpack-invoice-table',
+          originalQuantity: quantityCell.value,
+          originalUnitPrice: unitPriceCell.value,
+        }),
+      );
+    }
+
+    return items;
   }
 
   private extractModernInvoice(lines: string[], pageNumber?: number) {
@@ -474,6 +548,25 @@ export class InterpackExtractorService {
 
   private normalizeReference(value: string) {
     return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  private findKnownReference(cells: string[]) {
+    return cells
+      .map((cell) => this.normalizeReference(cell))
+      .find((reference) => this.knownDescriptionByReference(reference));
+  }
+
+  private findDescriptionCell(cells: string[]) {
+    return cells.find((cell) => {
+      const normalized = this.normalize(cell);
+
+      return (
+        normalized.includes('bolsa') ||
+        normalized.includes('resma') ||
+        normalized.includes('antigrasa') ||
+        normalized.includes('celulosa')
+      );
+    });
   }
 
   private knownDescriptionByReference(reference: string) {
