@@ -235,6 +235,34 @@ RESMA2
     });
   });
 
+  it('drops orphan RESMA2 fragments when the complete fixed resma line is also present', () => {
+    const items = service.extractInvoice({
+      supplierName: 'INTERPACK',
+      rawData: {
+        ocr: {
+          lines: [
+            { text: 'RESMA2 44,000' },
+            { text: 'RESMA ANTIGRASA 75*100 500H' },
+            { text: 'RESMA2' },
+            { text: '20,00' },
+            { text: '44,000' },
+            { text: '880,00' },
+          ],
+        },
+      },
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      descriptionRaw: 'RESMA ANTIGRASA 75*100 500H',
+      matchCode: 'INTERPACK_RESMA_ANTIGRASA_75X100_500H',
+      reference: 'RESMA2',
+      quantity: '20.0000',
+      unitPrice: '44.000000',
+      totalAmount: '880.0000',
+    });
+  });
+
   it('extracts legacy resma rows and infers match codes from gramaje or cut size', () => {
     const items = service.extractInvoice({
       supplierName: 'INTERPACK',

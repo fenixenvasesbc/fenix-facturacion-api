@@ -844,8 +844,29 @@ export class InterpackExtractorService {
 
   private dedupeItems(items: ExtractedInvoiceItem[]) {
     const bestByKey = new Map<string, ExtractedInvoiceItem>();
+    const normalizedItems = items.map((item) =>
+      this.normalizeKnownReferenceItem(item),
+    );
+    const completeKnownMatchCodes = new Set(
+      normalizedItems
+        .filter(
+          (item) =>
+            this.isKnownReferenceMatchCode(item.matchCode) &&
+            item.quantity !== undefined &&
+            item.totalAmount !== undefined,
+        )
+        .map((item) => item.matchCode),
+    );
 
-    for (const item of items) {
+    for (const item of normalizedItems) {
+      if (
+        this.isKnownReferenceMatchCode(item.matchCode) &&
+        completeKnownMatchCodes.has(item.matchCode) &&
+        (item.quantity === undefined || item.totalAmount === undefined)
+      ) {
+        continue;
+      }
+
       const key = [
         item.matchCode ?? '',
         item.reference ?? '',
@@ -864,6 +885,36 @@ export class InterpackExtractorService {
     }
 
     return [...bestByKey.values()];
+  }
+
+  private normalizeKnownReferenceItem(
+    item: ExtractedInvoiceItem,
+  ): ExtractedInvoiceItem {
+    const reference =
+      this.findKnownReference([item.reference ?? '', item.descriptionRaw]) ??
+      item.reference;
+    const matchCode = reference
+      ? this.knownMatchCodeByReference(reference)
+      : undefined;
+    const descriptionRaw = reference
+      ? this.knownDescriptionByReference(reference)
+      : undefined;
+
+    if (!matchCode || !descriptionRaw) {
+      return item;
+    }
+
+    return {
+      ...item,
+      descriptionRaw,
+      descriptionNormalized: this.normalize(descriptionRaw),
+      matchCode,
+      reference,
+    };
+  }
+
+  private isKnownReferenceMatchCode(value?: string) {
+    return value === 'INTERPACK_RESMA_ANTIGRASA_75X100_500H';
   }
 
   private itemQualityScore(item: ExtractedInvoiceItem) {
