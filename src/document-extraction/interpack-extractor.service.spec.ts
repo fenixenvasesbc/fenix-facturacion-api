@@ -68,14 +68,11 @@ ABONO
 
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
-      matchCode: 'RESMA2',
+      matchCode: 'INTERPACK_RESMA_ANTIGRASA_75X100_500H',
       reference: 'RESMA2',
       quantity: '20.0000',
       unitPrice: '44.000000',
       totalAmount: '880.0000',
-    });
-    expect(items[0].rawData.extractor).toMatchObject({
-      alternateMatchCodes: ['INTERPACK_RESMA_ANTIGRASA_75X100_500H'],
     });
   });
 
@@ -93,14 +90,11 @@ RESMA2
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
       descriptionRaw: 'RESMA ANTIGRASA 75*100 500H',
-      matchCode: 'RESMA2',
+      matchCode: 'INTERPACK_RESMA_ANTIGRASA_75X100_500H',
       reference: 'RESMA2',
       quantity: '20.0000',
       unitPrice: '44.000000',
       totalAmount: '880.0000',
-    });
-    expect(items[0].rawData.extractor).toMatchObject({
-      alternateMatchCodes: ['INTERPACK_RESMA_ANTIGRASA_75X100_500H'],
     });
   });
 
@@ -125,7 +119,7 @@ RESMA2
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
       descriptionRaw: 'RESMA ANTIGRASA 75*100 500H',
-      matchCode: 'RESMA2',
+      matchCode: 'INTERPACK_RESMA_ANTIGRASA_75X100_500H',
       reference: 'RESMA2',
       quantity: '20.0000',
       unitPrice: '44.000000',
@@ -133,7 +127,23 @@ RESMA2
     });
     expect(items[0].rawData.extractor).toMatchObject({
       name: 'interpack-invoice-table',
-      alternateMatchCodes: ['INTERPACK_RESMA_ANTIGRASA_75X100_500H'],
+    });
+  });
+
+  it('extracts Interpack inline OCR text rows where RESMA2 carries the numeric columns', () => {
+    const items = service.extractInvoice({
+      supplierName: 'INTERPACK',
+      rawText: 'RESMA2 20,00 44,000 0,00 880,00',
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      descriptionRaw: 'RESMA ANTIGRASA 75*100 500H',
+      matchCode: 'INTERPACK_RESMA_ANTIGRASA_75X100_500H',
+      reference: 'RESMA2',
+      quantity: '20.0000',
+      unitPrice: '44.000000',
+      totalAmount: '880.0000',
     });
   });
 

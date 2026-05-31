@@ -29,6 +29,7 @@ export class InterpackExtractorService {
       .filter(Boolean);
 
     return this.dedupeItems([
+      ...this.extractKnownReferenceInlineRows(lines, 1),
       ...this.extractModernInvoice(lines, 1),
       ...this.extractLegacyInvoice(lines, 1),
       ...this.extractReferenceOnlyInvoice(lines, 1),
@@ -48,6 +49,7 @@ export class InterpackExtractorService {
         .filter(Boolean);
 
       items.push(
+        ...this.extractKnownReferenceInlineRows(lines, table.page),
         ...this.extractModernInvoice(lines, table.page),
         ...this.extractLegacyInvoice(lines, table.page),
         ...this.extractReferenceOnlyInvoice(lines, table.page),
@@ -55,6 +57,49 @@ export class InterpackExtractorService {
     }
 
     return this.dedupeItems(items);
+  }
+
+  private extractKnownReferenceInlineRows(
+    lines: string[],
+    pageNumber?: number,
+  ) {
+    const items: ExtractedInvoiceItem[] = [];
+
+    for (const [index, line] of lines.entries()) {
+      const reference = this.findKnownReference([line]);
+      const descriptionRaw = reference
+        ? this.knownDescriptionByReference(reference)
+        : undefined;
+
+      if (!reference || !descriptionRaw) {
+        continue;
+      }
+
+      const numbers = this.extractNumbers(line);
+      const values = this.resolveQuantityPriceTotal(numbers);
+
+      if (!values) {
+        continue;
+      }
+
+      items.push(
+        this.toInvoiceItem({
+          descriptionRaw,
+          reference,
+          quantity: values.quantity,
+          unitPrice: values.unitPrice,
+          totalAmount: values.totalAmount,
+          rowIndex: index,
+          pageNumber,
+          sourceLines: [line],
+          extractorName: 'interpack-invoice-known-reference-inline',
+          originalQuantity: values.quantity,
+          originalUnitPrice: values.unitPrice,
+        }),
+      );
+    }
+
+    return items;
   }
 
   private extractInvoiceFromTableRows(table: OcrTable) {
@@ -85,17 +130,19 @@ export class InterpackExtractorService {
         continue;
       }
 
-      const priceCells =
+      const values = this.resolveQuantityPriceTotal(
+        numericCells.map((entry) => entry.value),
+      );
+      const quantityCell =
         numericCells.length >= 4 && numericCells.at(-2)?.value === 0
-          ? [numericCells.at(-4), numericCells.at(-3), numericCells.at(-1)]
-          : numericCells.slice(-3);
-      const [quantityCell, unitPriceCell, totalCell] = priceCells;
+          ? numericCells.at(-4)
+          : numericCells.at(-3);
 
-      if (!quantityCell || !unitPriceCell || !totalCell) {
+      if (!values || !quantityCell) {
         continue;
       }
 
-      if (unitPriceCell.value < 0 || totalCell.value < 0) {
+      if (values.unitPrice < 0 || values.totalAmount < 0) {
         continue;
       }
 
@@ -113,15 +160,15 @@ export class InterpackExtractorService {
         this.toInvoiceItem({
           descriptionRaw: descriptionRaw ?? reference ?? cells[0],
           reference,
-          quantity: quantityCell.value,
-          unitPrice: unitPriceCell.value,
-          totalAmount: totalCell.value,
+          quantity: values.quantity,
+          unitPrice: values.unitPrice,
+          totalAmount: values.totalAmount,
           rowIndex,
           pageNumber: table.page,
           sourceLines: [cells.join(' | ')],
           extractorName: 'interpack-invoice-table',
-          originalQuantity: quantityCell.value,
-          originalUnitPrice: unitPriceCell.value,
+          originalQuantity: values.quantity,
+          originalUnitPrice: values.unitPrice,
         }),
       );
     }
@@ -390,6 +437,13 @@ export class InterpackExtractorService {
 
   private resolveMatchCode(descriptionRaw: string, reference?: string) {
     const normalized = this.normalize(descriptionRaw);
+    const knownMatchCode = reference
+      ? this.knownMatchCodeByReference(reference)
+      : undefined;
+
+    if (knownMatchCode) {
+      return knownMatchCode;
+    }
 
     if (normalized.includes('resma') || normalized.includes('antigrasa')) {
       return reference ?? this.resolveResmaMatchCode(descriptionRaw);
@@ -407,6 +461,13 @@ export class InterpackExtractorService {
     reference?: string,
   ) {
     const normalized = this.normalize(descriptionRaw);
+    const knownMatchCode = reference
+      ? this.knownMatchCodeByReference(reference)
+      : undefined;
+
+    if (knownMatchCode) {
+      return undefined;
+    }
 
     const derived = normalized.includes('bolsa')
       ? this.resolveBagMatchCode(descriptionRaw)
@@ -551,9 +612,20 @@ export class InterpackExtractorService {
   }
 
   private findKnownReference(cells: string[]) {
-    return cells
-      .map((cell) => this.normalizeReference(cell))
-      .find((reference) => this.knownDescriptionByReference(reference));
+    const knownReferences = ['RESMA2'];
+
+    for (const cell of cells) {
+      const normalized = this.normalizeReference(cell);
+      const reference = knownReferences.find((knownReference) =>
+        normalized.includes(knownReference),
+      );
+
+      if (reference) {
+        return reference;
+      }
+    }
+
+    return undefined;
   }
 
   private findDescriptionCell(cells: string[]) {
@@ -572,6 +644,14 @@ export class InterpackExtractorService {
   private knownDescriptionByReference(reference: string) {
     const knownReferences: Record<string, string> = {
       RESMA2: 'RESMA ANTIGRASA 75*100 500H',
+    };
+
+    return knownReferences[reference];
+  }
+
+  private knownMatchCodeByReference(reference: string) {
+    const knownReferences: Record<string, string> = {
+      RESMA2: 'INTERPACK_RESMA_ANTIGRASA_75X100_500H',
     };
 
     return knownReferences[reference];
@@ -601,6 +681,32 @@ export class InterpackExtractorService {
     }
 
     return [];
+  }
+
+  private resolveQuantityPriceTotal(numbers: number[]) {
+    if (numbers.length < 3) {
+      return undefined;
+    }
+
+    const values =
+      numbers.length >= 4 && numbers.at(-2) === 0
+        ? [numbers.at(-4), numbers.at(-3), numbers.at(-1)]
+        : numbers.slice(-3);
+    const [quantity, unitPrice, totalAmount] = values;
+
+    if (
+      quantity === undefined ||
+      unitPrice === undefined ||
+      totalAmount === undefined
+    ) {
+      return undefined;
+    }
+
+    return {
+      quantity,
+      unitPrice,
+      totalAmount,
+    };
   }
 
   private dedupeItems(items: ExtractedInvoiceItem[]) {
