@@ -265,7 +265,7 @@ export class InterpackExtractorService {
     const normalized = this.normalize(descriptionRaw);
 
     if (normalized.includes('resma') || normalized.includes('antigrasa')) {
-      return this.resolveResmaMatchCode(descriptionRaw);
+      return reference ?? this.resolveResmaMatchCode(descriptionRaw);
     }
 
     if (normalized.includes('bolsa')) {
@@ -281,11 +281,11 @@ export class InterpackExtractorService {
   ) {
     const normalized = this.normalize(descriptionRaw);
 
-    if (!normalized.includes('bolsa')) {
-      return undefined;
-    }
-
-    const derived = this.resolveBagMatchCode(descriptionRaw);
+    const derived = normalized.includes('bolsa')
+      ? this.resolveBagMatchCode(descriptionRaw)
+      : normalized.includes('resma') || normalized.includes('antigrasa')
+        ? this.resolveResmaMatchCode(descriptionRaw)
+        : undefined;
 
     if (!derived || derived === reference) {
       return undefined;

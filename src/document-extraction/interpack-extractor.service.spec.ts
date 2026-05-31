@@ -68,11 +68,14 @@ ABONO
 
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
-      matchCode: 'INTERPACK_RESMA_ANTIGRASA_75X100_500H',
+      matchCode: 'RESMA2',
       reference: 'RESMA2',
       quantity: '20.0000',
       unitPrice: '44.000000',
       totalAmount: '880.0000',
+    });
+    expect(items[0].rawData.extractor).toMatchObject({
+      alternateMatchCodes: ['INTERPACK_RESMA_ANTIGRASA_75X100_500H'],
     });
   });
 
