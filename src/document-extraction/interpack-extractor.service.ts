@@ -90,7 +90,7 @@ export class InterpackExtractorService {
         this.findKnownReference([line]) ??
         this.findKnownReference(lines.slice(index + 1, index + 2));
 
-      if (inlineValues) {
+      if (inlineValues && this.lineMathIsValid(inlineValues)) {
         items.push(
           this.toInvoiceItem({
             descriptionRaw: known.descriptionRaw,
@@ -123,7 +123,7 @@ export class InterpackExtractorService {
         numericLines.flatMap((numericLine) => this.extractNumbers(numericLine)),
       );
 
-      if (!sequentialValues) {
+      if (!sequentialValues || !this.lineMathIsValid(sequentialValues)) {
         continue;
       }
 
@@ -230,7 +230,11 @@ export class InterpackExtractorService {
         continue;
       }
 
-      if (values.unitPrice < 0 || values.totalAmount < 0) {
+      if (
+        values.unitPrice < 0 ||
+        values.totalAmount < 0 ||
+        !this.lineMathIsValid(values)
+      ) {
         continue;
       }
 
@@ -828,25 +832,46 @@ export class InterpackExtractorService {
     };
   }
 
-  private dedupeItems(items: ExtractedInvoiceItem[]) {
-    const seen = new Set<string>();
+  private lineMathIsValid(values: {
+    quantity: number;
+    unitPrice: number;
+    totalAmount: number;
+  }) {
+    return (
+      Math.abs(values.quantity * values.unitPrice - values.totalAmount) <= 0.05
+    );
+  }
 
-    return items.filter((item) => {
+  private dedupeItems(items: ExtractedInvoiceItem[]) {
+    const bestByKey = new Map<string, ExtractedInvoiceItem>();
+
+    for (const item of items) {
       const key = [
-        item.descriptionRaw,
+        item.matchCode ?? '',
         item.reference ?? '',
+        item.descriptionNormalized,
         item.quantity ?? '',
-        item.unitPrice,
         item.totalAmount ?? '',
       ].join('|');
+      const previous = bestByKey.get(key);
 
-      if (seen.has(key)) {
-        return false;
+      if (
+        !previous ||
+        this.itemQualityScore(item) > this.itemQualityScore(previous)
+      ) {
+        bestByKey.set(key, item);
       }
+    }
 
-      seen.add(key);
-      return true;
-    });
+    return [...bestByKey.values()];
+  }
+
+  private itemQualityScore(item: ExtractedInvoiceItem) {
+    return (
+      item.confidence +
+      (item.warnings.length === 0 ? 1 : 0) +
+      (item.descriptionRaw !== item.reference ? 0.25 : 0)
+    );
   }
 
   private isNumericLine(value: string) {
