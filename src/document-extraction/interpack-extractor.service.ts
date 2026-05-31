@@ -585,15 +585,20 @@ export class InterpackExtractorService {
       : normalized.includes('resma') || normalized.includes('antigrasa')
         ? this.resolveResmaMatchCode(descriptionRaw)
         : undefined;
-    const alternates: string[] = [];
+    const alternates =
+      normalized.includes('resma') || normalized.includes('antigrasa')
+        ? this.resolveResmaAlternateMatchCodes(descriptionRaw)
+        : [];
 
     if (!derived || derived === reference) {
       return alternates.length > 0 ? alternates : undefined;
     }
 
-    return [derived, ...alternates].filter(
-      (value, index, values) => values.indexOf(value) === index,
-    );
+    const primary = this.resolveMatchCode(descriptionRaw, reference);
+
+    return [derived, ...alternates]
+      .filter((value, index, values) => values.indexOf(value) === index)
+      .filter((value) => value !== reference && value !== primary);
   }
 
   private resolveBagMatchCode(descriptionRaw: string) {
@@ -650,12 +655,17 @@ export class InterpackExtractorService {
         /(\d+(?:[,.]\d+)?)\s*[x*]\s*(\d+(?:[,.]\d+)?)\s*cm?\s*millar/i.exec(
           descriptionRaw,
         );
-      const sizeMatch = cutMatch ?? anySizeMatch;
+      if (cutMatch) {
+        return `INTERPACK_RESMA_ANTIGRASA_CORTE_${this.preserveCutMeasure(
+          cutMatch[1],
+          cutMatch[2],
+        )}`;
+      }
 
-      if (sizeMatch) {
+      if (anySizeMatch) {
         return `INTERPACK_RESMA_ANTIGRASA_CORTE_${this.normalizeCutMeasure(
-          sizeMatch[1],
-          sizeMatch[2],
+          anySizeMatch[1],
+          anySizeMatch[2],
         )}`;
       }
 
@@ -673,12 +683,49 @@ export class InterpackExtractorService {
     return undefined;
   }
 
+  private resolveResmaAlternateMatchCodes(descriptionRaw: string) {
+    const normalized = this.normalize(descriptionRaw);
+
+    if (!normalized.includes('antigrasa')) {
+      return [];
+    }
+
+    const cutMatch =
+      /corte\s*(\d+(?:[,.]\d+)?)\s*[x*]\s*(\d+(?:[,.]\d+)?)/i.exec(
+        descriptionRaw,
+      );
+    const anySizeMatch =
+      /(\d+(?:[,.]\d+)?)\s*[x*]\s*(\d+(?:[,.]\d+)?)\s*cm?\s*millar/i.exec(
+        descriptionRaw,
+      );
+    const sizeMatch = cutMatch ?? anySizeMatch;
+
+    if (!sizeMatch) {
+      return [];
+    }
+
+    return [
+      `INTERPACK_RESMA_ANTIGRASA_CORTE_${this.normalizeCutMeasure(
+        sizeMatch[1],
+        sizeMatch[2],
+      )}`,
+      `INTERPACK_RESMA_ANTIGRASA_CORTE_${this.preserveCutMeasure(
+        sizeMatch[2],
+        sizeMatch[1],
+      )}`,
+    ];
+  }
+
   private normalizeCutMeasure(firstRaw: string, secondRaw: string) {
     const first = this.measureInteger(firstRaw);
     const second = this.measureInteger(secondRaw);
     const ordered = [first, second].sort((left, right) => left - right);
 
     return `${ordered[0]}X${ordered[1]}`;
+  }
+
+  private preserveCutMeasure(firstRaw: string, secondRaw: string) {
+    return `${this.measureInteger(firstRaw)}X${this.measureInteger(secondRaw)}`;
   }
 
   private measureInteger(value: string) {

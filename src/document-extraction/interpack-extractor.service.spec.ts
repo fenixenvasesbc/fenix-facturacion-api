@@ -291,11 +291,14 @@ CLICHES
     expect(items).toHaveLength(3);
     expect(items[0]).toMatchObject({
       descriptionRaw: 'RESMA ANTIGRASA 63,5X86 CM 40GR 400H IMP. CORTE 60X40',
-      matchCode: 'INTERPACK_RESMA_ANTIGRASA_CORTE_40X60',
+      matchCode: 'INTERPACK_RESMA_ANTIGRASA_CORTE_60X40',
       reference: 'RESMAANTIMP',
       quantity: '20.0000',
       unitPrice: '34.300000',
       totalAmount: '686.0000',
+    });
+    expect(items[0].rawData.extractor).toMatchObject({
+      alternateMatchCodes: ['INTERPACK_RESMA_ANTIGRASA_CORTE_40X60'],
     });
     expect(items[1]).toMatchObject({
       descriptionRaw: 'CLICHES',
