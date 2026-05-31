@@ -313,11 +313,19 @@ export class InterpackExtractorService {
         continue;
       }
 
-      const descriptionRaw = lines
-        .slice(index, referenceIndex)
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+      const trailingDetail = this.extractTrailingDetail(
+        lines[referenceIndex + 4],
+      );
+      const descriptionRaw = [
+        lines
+          .slice(index, referenceIndex)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim(),
+        trailingDetail,
+      ]
+        .filter(Boolean)
+        .join(' ');
       const reference = this.normalizeReference(lines[referenceIndex]);
       const isBag = this.normalize(descriptionRaw).includes('bolsa');
       const quantity = isBag ? quantityRaw * 1000 : quantityRaw;
@@ -332,14 +340,17 @@ export class InterpackExtractorService {
           totalAmount,
           rowIndex: index,
           pageNumber,
-          sourceLines: lines.slice(index, referenceIndex + 4),
+          sourceLines: lines.slice(
+            index,
+            referenceIndex + (trailingDetail ? 5 : 4),
+          ),
           extractorName: 'interpack-invoice-modern',
           originalQuantity: quantityRaw,
           originalUnitPrice: priceRaw,
         }),
       );
 
-      index = referenceIndex + 4;
+      index = referenceIndex + (trailingDetail ? 5 : 4);
     }
 
     return items;
@@ -537,8 +548,16 @@ export class InterpackExtractorService {
       return knownMatchCode;
     }
 
+    if (normalized.includes('cliche')) {
+      return 'CLICHES';
+    }
+
     if (normalized.includes('resma') || normalized.includes('antigrasa')) {
-      return reference ?? this.resolveResmaMatchCode(descriptionRaw);
+      const resmaMatchCode = this.resolveResmaMatchCode(descriptionRaw);
+
+      return this.isGenericInterpackReference(reference)
+        ? resmaMatchCode
+        : (reference ?? resmaMatchCode);
     }
 
     if (normalized.includes('bolsa')) {
@@ -566,12 +585,15 @@ export class InterpackExtractorService {
       : normalized.includes('resma') || normalized.includes('antigrasa')
         ? this.resolveResmaMatchCode(descriptionRaw)
         : undefined;
+    const alternates: string[] = [];
 
     if (!derived || derived === reference) {
-      return undefined;
+      return alternates.length > 0 ? alternates : undefined;
     }
 
-    return [derived];
+    return [derived, ...alternates].filter(
+      (value, index, values) => values.indexOf(value) === index,
+    );
   }
 
   private resolveBagMatchCode(descriptionRaw: string) {
@@ -583,7 +605,9 @@ export class InterpackExtractorService {
       ? 'B'
       : normalized.includes('marron')
         ? 'M'
-        : undefined;
+        : normalized.includes('antigrasa')
+          ? 'A'
+          : undefined;
 
     if (measureMatch && colorCode) {
       return `${measureMatch[1]}${measureMatch[2]}${measureMatch[3]}${colorCode}I`;
@@ -701,8 +725,17 @@ export class InterpackExtractorService {
     const clean = this.normalizeReference(value);
 
     return (
-      /^[A-Z0-9]{3,}$/.test(clean) && /[A-Z]/.test(clean) && /\d/.test(clean)
+      this.isKnownInvoiceReference(clean) ||
+      (/^[A-Z0-9]{3,}$/.test(clean) && /[A-Z]/.test(clean) && /\d/.test(clean))
     );
+  }
+
+  private isKnownInvoiceReference(reference: string) {
+    return ['CLICHES', 'RESMAANTIMP', 'RESMA2'].includes(reference);
+  }
+
+  private isGenericInterpackReference(reference?: string) {
+    return reference === 'RESMAANTIMP';
   }
 
   private normalizeReference(value: string) {
@@ -775,9 +808,24 @@ export class InterpackExtractorService {
   private knownMatchCodeByReference(reference: string) {
     const knownReferences: Record<string, string> = {
       RESMA2: 'INTERPACK_RESMA_ANTIGRASA_75X100_500H',
+      CLICHES: 'CLICHES',
     };
 
     return knownReferences[reference];
+  }
+
+  private extractTrailingDetail(value?: string) {
+    if (!value) {
+      return undefined;
+    }
+
+    const normalized = this.normalize(value);
+
+    if (normalized.startsWith('corte')) {
+      return value;
+    }
+
+    return undefined;
   }
 
   private isLegacyCategoryLine(normalized: string) {

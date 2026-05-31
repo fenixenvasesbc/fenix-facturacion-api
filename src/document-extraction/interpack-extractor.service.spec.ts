@@ -263,6 +263,61 @@ RESMA2
     });
   });
 
+  it('extracts Interpack invoice rows with non-numeric references, cliches and antigrasa bag references', () => {
+    const items = service.extractInvoice({
+      supplierName: 'INTERPACK',
+      rawText: `
+RESMA ANTIGRASA 63,5X86 CM 40GR 400H IMP.
+RESMA ANT.IMP
+20,00
+34,300
+686,00
+CORTE 60X40
+CLICHES
+CLICHES
+1,00
+65,000
+65,00
+"IMP: ATELIER VIENA"
+10+4*31 BOLSA PAPEL ANTIGRASA IMP.
+10431AI
+50,00
+20,400
+1.020,00
+"EL MARQUES"
+`,
+    });
+
+    expect(items).toHaveLength(3);
+    expect(items[0]).toMatchObject({
+      descriptionRaw: 'RESMA ANTIGRASA 63,5X86 CM 40GR 400H IMP. CORTE 60X40',
+      matchCode: 'INTERPACK_RESMA_ANTIGRASA_CORTE_40X60',
+      reference: 'RESMAANTIMP',
+      quantity: '20.0000',
+      unitPrice: '34.300000',
+      totalAmount: '686.0000',
+    });
+    expect(items[1]).toMatchObject({
+      descriptionRaw: 'CLICHES',
+      matchCode: 'CLICHES',
+      reference: 'CLICHES',
+      quantity: '1.0000',
+      unitPrice: '65.000000',
+      totalAmount: '65.0000',
+    });
+    expect(items[2]).toMatchObject({
+      descriptionRaw: '10+4*31 BOLSA PAPEL ANTIGRASA IMP.',
+      matchCode: '10431AI',
+      reference: '10431AI',
+      quantity: '50000.0000',
+      unitPrice: '0.020400',
+      totalAmount: '1020.0000',
+    });
+    expect(items[2].rawData.extractor).not.toMatchObject({
+      alternateMatchCodes: expect.any(Array),
+    });
+  });
+
   it('extracts legacy resma rows and infers match codes from gramaje or cut size', () => {
     const items = service.extractInvoice({
       supplierName: 'INTERPACK',
