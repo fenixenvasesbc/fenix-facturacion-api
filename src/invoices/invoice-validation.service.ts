@@ -154,6 +154,12 @@ export class InvoiceValidationService {
     const activeItems = negotiatedItems.filter(
       (item) => item.status === PriceItemStatus.ACTIVE,
     );
+    const exactMatch = this.findExactMatchCodeMatch(invoiceItem, activeItems);
+
+    if (exactMatch) {
+      return exactMatch;
+    }
+
     let bestMatch: NegotiatedItem | undefined;
     let bestScore = 0;
 
@@ -175,6 +181,25 @@ export class InvoiceValidationService {
     return bestScore >= 0.55 ? bestMatch : undefined;
   }
 
+  private findExactMatchCodeMatch(
+    invoiceItem: ParsedInvoiceItem,
+    activeItems: NegotiatedItem[],
+  ) {
+    const invoiceMatchCode = this.normalizeMatchCode(invoiceItem.matchCode);
+
+    if (!invoiceMatchCode) {
+      return undefined;
+    }
+
+    return activeItems
+      .filter(
+        (item) => this.normalizeMatchCode(item.matchCode) === invoiceMatchCode,
+      )
+      .sort(
+        (left, right) => right.updatedAt.getTime() - left.updatedAt.getTime(),
+      )[0];
+  }
+
   private isNewer(left: NegotiatedItem, right: NegotiatedItem) {
     return left.updatedAt.getTime() > right.updatedAt.getTime();
   }
@@ -182,11 +207,16 @@ export class InvoiceValidationService {
   private matchScore(invoiceItem: ParsedInvoiceItem, item: NegotiatedItem) {
     const invoiceMatchCode = this.normalizeMatchCode(invoiceItem.matchCode);
     const itemMatchCode = this.normalizeMatchCode(item.matchCode);
+    const alternateMatchCodes = this.getAlternateMatchCodes(invoiceItem).map(
+      (value) => this.normalizeMatchCode(value),
+    );
 
     const matchCodeScore =
       invoiceMatchCode && itemMatchCode && invoiceMatchCode === itemMatchCode
         ? 0.65
-        : 0;
+        : itemMatchCode && alternateMatchCodes.includes(itemMatchCode)
+          ? 0.65
+          : 0;
 
     const candidates = [
       item.descriptionNormalized,
@@ -582,5 +612,25 @@ export class InvoiceValidationService {
     const normalized = value?.trim();
 
     return normalized ? normalized.toUpperCase() : undefined;
+  }
+
+  private getAlternateMatchCodes(invoiceItem: ParsedInvoiceItem) {
+    const rawData = invoiceItem.rawData as
+      | {
+          extractor?: {
+            alternateMatchCodes?: unknown;
+          };
+        }
+      | null
+      | undefined;
+    const alternateMatchCodes = rawData?.extractor?.alternateMatchCodes;
+
+    if (!Array.isArray(alternateMatchCodes)) {
+      return [];
+    }
+
+    return alternateMatchCodes.filter(
+      (value): value is string => typeof value === 'string' && value.length > 0,
+    );
   }
 }

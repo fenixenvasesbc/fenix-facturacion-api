@@ -211,7 +211,7 @@ function firstRuleValues(rules: ImportRule[]) {
 
 function createBagItems(category: InterpackCategory): ImportItem[] {
   const color = normalizeDescription(category.color ?? '');
-  const colorCodes = color.includes('marron') ? ['MI', 'AI'] : ['BI'];
+  const colorCodes = color.includes('marron') ? ['M'] : ['B'];
 
   return category.productos.flatMap((product) =>
     colorCodes.map((colorCode) => {

@@ -218,6 +218,10 @@ export class InterpackExtractorService {
       input.descriptionRaw,
       input.reference,
     );
+    const alternateMatchCodes = this.resolveAlternateMatchCodes(
+      input.descriptionRaw,
+      input.reference,
+    );
     const warnings = this.validateLineMath(
       input.quantity,
       input.unitPrice,
@@ -250,6 +254,7 @@ export class InterpackExtractorService {
             input.originalUnitPrice === undefined
               ? undefined
               : this.decimalString(input.originalUnitPrice, 6),
+          alternateMatchCodes,
           sourceLines: input.sourceLines,
         },
       },
@@ -263,11 +268,48 @@ export class InterpackExtractorService {
       return this.resolveResmaMatchCode(descriptionRaw);
     }
 
-    if (reference && normalized.includes('bolsa')) {
-      return reference;
+    if (normalized.includes('bolsa')) {
+      return reference ?? this.resolveBagMatchCode(descriptionRaw);
     }
 
     return reference;
+  }
+
+  private resolveAlternateMatchCodes(
+    descriptionRaw: string,
+    reference?: string,
+  ) {
+    const normalized = this.normalize(descriptionRaw);
+
+    if (!normalized.includes('bolsa')) {
+      return undefined;
+    }
+
+    const derived = this.resolveBagMatchCode(descriptionRaw);
+
+    if (!derived || derived === reference) {
+      return undefined;
+    }
+
+    return [derived];
+  }
+
+  private resolveBagMatchCode(descriptionRaw: string) {
+    const normalized = this.normalize(descriptionRaw);
+    const measureMatch = /(\d+)\s*\+\s*(\d+)\s*[*x]\s*(\d+)/i.exec(
+      descriptionRaw,
+    );
+    const colorCode = normalized.includes('blanco')
+      ? 'B'
+      : normalized.includes('marron')
+        ? 'M'
+        : undefined;
+
+    if (measureMatch && colorCode) {
+      return `${measureMatch[1]}${measureMatch[2]}${measureMatch[3]}${colorCode}I`;
+    }
+
+    return undefined;
   }
 
   private resolveResmaMatchCode(descriptionRaw: string) {

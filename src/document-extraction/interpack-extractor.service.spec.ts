@@ -39,9 +39,13 @@ INTERPACK EMBALAJES AL ANDALUS S.L.
     });
     expect(items[1]).toMatchObject({
       matchCode: '22735MI',
+      reference: '22735MI',
       quantity: '25000.0000',
       unitPrice: '0.023200',
       totalAmount: '580.0000',
+    });
+    expect(items[1].rawData.extractor).toMatchObject({
+      alternateMatchCodes: ['22736MI'],
     });
   });
 
