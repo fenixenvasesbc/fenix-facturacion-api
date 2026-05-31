@@ -31,6 +31,7 @@ export class InterpackExtractorService {
     return this.dedupeItems([
       ...this.extractModernInvoice(lines, 1),
       ...this.extractLegacyInvoice(lines, 1),
+      ...this.extractReferenceOnlyInvoice(lines, 1),
     ]);
   }
 
@@ -47,6 +48,7 @@ export class InterpackExtractorService {
       items.push(
         ...this.extractModernInvoice(lines, table.page),
         ...this.extractLegacyInvoice(lines, table.page),
+        ...this.extractReferenceOnlyInvoice(lines, table.page),
       );
     }
 
@@ -125,6 +127,57 @@ export class InterpackExtractorService {
       );
 
       index = referenceIndex + 4;
+    }
+
+    return items;
+  }
+
+  private extractReferenceOnlyInvoice(lines: string[], pageNumber?: number) {
+    const items: ExtractedInvoiceItem[] = [];
+
+    for (let index = 0; index < lines.length - 3; index += 1) {
+      const reference = this.normalizeReference(lines[index]);
+      const knownDescription = this.knownDescriptionByReference(reference);
+
+      if (!knownDescription) {
+        continue;
+      }
+
+      const numericLines = lines.slice(index + 1, index + 4);
+
+      if (!numericLines.every((value) => this.isNumericLine(value))) {
+        continue;
+      }
+
+      const quantity = this.parseLocaleNumber(numericLines[0]);
+      const unitPrice = this.parseLocaleNumber(numericLines[1]);
+      const totalAmount = this.parseLocaleNumber(numericLines[2]);
+
+      if (
+        quantity === undefined ||
+        unitPrice === undefined ||
+        totalAmount === undefined ||
+        unitPrice < 0 ||
+        totalAmount < 0
+      ) {
+        continue;
+      }
+
+      items.push(
+        this.toInvoiceItem({
+          descriptionRaw: knownDescription,
+          reference,
+          quantity,
+          unitPrice,
+          totalAmount,
+          rowIndex: index,
+          pageNumber,
+          sourceLines: lines.slice(index, index + 4),
+          extractorName: 'interpack-invoice-reference-only',
+          originalQuantity: quantity,
+          originalUnitPrice: unitPrice,
+        }),
+      );
     }
 
     return items;
@@ -421,6 +474,14 @@ export class InterpackExtractorService {
 
   private normalizeReference(value: string) {
     return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  private knownDescriptionByReference(reference: string) {
+    const knownReferences: Record<string, string> = {
+      RESMA2: 'RESMA ANTIGRASA 75*100 500H',
+    };
+
+    return knownReferences[reference];
   }
 
   private isLegacyCategoryLine(normalized: string) {

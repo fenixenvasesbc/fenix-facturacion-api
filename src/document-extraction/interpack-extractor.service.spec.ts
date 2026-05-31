@@ -79,6 +79,31 @@ ABONO
     });
   });
 
+  it('maps Interpack reference-only resma rows before the generic parser sees RESMA2', () => {
+    const items = service.extractInvoice({
+      supplierName: 'INTERPACK',
+      rawText: `
+RESMA2
+20,00
+44,000
+880,00
+`,
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      descriptionRaw: 'RESMA ANTIGRASA 75*100 500H',
+      matchCode: 'RESMA2',
+      reference: 'RESMA2',
+      quantity: '20.0000',
+      unitPrice: '44.000000',
+      totalAmount: '880.0000',
+    });
+    expect(items[0].rawData.extractor).toMatchObject({
+      alternateMatchCodes: ['INTERPACK_RESMA_ANTIGRASA_75X100_500H'],
+    });
+  });
+
   it('extracts legacy resma rows and infers match codes from gramaje or cut size', () => {
     const items = service.extractInvoice({
       supplierName: 'INTERPACK',
