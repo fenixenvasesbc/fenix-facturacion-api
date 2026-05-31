@@ -5,6 +5,7 @@ import {
   ExtractedPriceListItem,
 } from './document-extraction.types';
 import { DrakoExtractorService } from './drako-extractor.service';
+import { InterpackExtractorService } from './interpack-extractor.service';
 import { MoraYGomaExtractorService } from './mora-y-goma-extractor.service';
 import { SaicaExtractorService } from './saica-extractor.service';
 import { SotoExtractorService } from './soto-extractor.service';
@@ -15,6 +16,7 @@ export class DocumentExtractionService {
 
   constructor(
     private readonly drakoExtractor: DrakoExtractorService,
+    private readonly interpackExtractor: InterpackExtractorService,
     private readonly moraYGomaExtractor: MoraYGomaExtractorService,
     private readonly saicaExtractor: SaicaExtractorService,
     private readonly sotoExtractor: SotoExtractorService,
@@ -37,6 +39,18 @@ export class DocumentExtractionService {
   }
 
   extractInvoice(input: DocumentExtractionInput): ExtractedInvoiceItem[] {
+    if (this.interpackExtractor.supports(input)) {
+      const items = this.interpackExtractor.extractInvoice(input);
+
+      if (items.length > 0) {
+        this.logger.log(
+          `Structured invoice extraction succeeded. extractor=interpack count=${items.length}`,
+        );
+
+        return items;
+      }
+    }
+
     if (this.drakoExtractor.supports(input)) {
       const items = this.drakoExtractor.extractInvoice(input);
 

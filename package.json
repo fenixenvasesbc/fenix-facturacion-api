@@ -22,7 +22,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "import:saica": "ts-node --transpile-only scripts/import-saica-prices.ts",
     "import:soto": "ts-node --transpile-only scripts/import-soto-prices.ts",
-    "import:drako": "ts-node --transpile-only scripts/import-drako-prices.ts"
+    "import:drako": "ts-node --transpile-only scripts/import-drako-prices.ts",
+    "import:interpack": "ts-node --transpile-only scripts/import-interpack-prices.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
