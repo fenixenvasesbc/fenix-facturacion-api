@@ -19,7 +19,7 @@ export class InterpackExtractorService {
       return textItems;
     }
 
-    return this.extractInvoiceFromTables(input.rawData);
+    return this.extractInvoiceFromRawData(input.rawData);
   }
 
   private extractInvoiceFromText(rawText: string) {
@@ -29,6 +29,7 @@ export class InterpackExtractorService {
       .filter(Boolean);
 
     return this.dedupeItems([
+      ...this.extractKnownDescriptionRows(lines, 1),
       ...this.extractKnownReferenceInlineRows(lines, 1),
       ...this.extractModernInvoice(lines, 1),
       ...this.extractLegacyInvoice(lines, 1),
@@ -36,10 +37,21 @@ export class InterpackExtractorService {
     ]);
   }
 
-  private extractInvoiceFromTables(
+  private extractInvoiceFromRawData(
     rawData?: Prisma.JsonValue | null,
   ): ExtractedInvoiceItem[] {
     const items: ExtractedInvoiceItem[] = [];
+    const ocrLines = this.getOcrLines(rawData);
+
+    if (ocrLines.length > 0) {
+      items.push(
+        ...this.extractKnownDescriptionRows(ocrLines, 1),
+        ...this.extractKnownReferenceInlineRows(ocrLines, 1),
+        ...this.extractModernInvoice(ocrLines, 1),
+        ...this.extractLegacyInvoice(ocrLines, 1),
+        ...this.extractReferenceOnlyInvoice(ocrLines, 1),
+      );
+    }
 
     for (const table of this.getTables(rawData)) {
       items.push(...this.extractInvoiceFromTableRows(table));
@@ -49,6 +61,7 @@ export class InterpackExtractorService {
         .filter(Boolean);
 
       items.push(
+        ...this.extractKnownDescriptionRows(lines, table.page),
         ...this.extractKnownReferenceInlineRows(lines, table.page),
         ...this.extractModernInvoice(lines, table.page),
         ...this.extractLegacyInvoice(lines, table.page),
@@ -57,6 +70,81 @@ export class InterpackExtractorService {
     }
 
     return this.dedupeItems(items);
+  }
+
+  private extractKnownDescriptionRows(lines: string[], pageNumber?: number) {
+    const items: ExtractedInvoiceItem[] = [];
+
+    for (const [index, line] of lines.entries()) {
+      const known = this.findKnownDescription(line);
+
+      if (!known) {
+        continue;
+      }
+
+      const lineWithoutKnownDescription = this.removeKnownDescription(line);
+      const inlineValues = this.resolveQuantityPriceTotal(
+        this.extractNumbers(lineWithoutKnownDescription),
+      );
+      const reference =
+        this.findKnownReference([line]) ??
+        this.findKnownReference(lines.slice(index + 1, index + 2));
+
+      if (inlineValues) {
+        items.push(
+          this.toInvoiceItem({
+            descriptionRaw: known.descriptionRaw,
+            reference,
+            quantity: inlineValues.quantity,
+            unitPrice: inlineValues.unitPrice,
+            totalAmount: inlineValues.totalAmount,
+            rowIndex: index,
+            pageNumber,
+            sourceLines: [line],
+            extractorName: 'interpack-invoice-known-description-inline',
+            originalQuantity: inlineValues.quantity,
+            originalUnitPrice: inlineValues.unitPrice,
+          }),
+        );
+
+        continue;
+      }
+
+      const numericStartIndex =
+        reference &&
+        this.normalizeReference(lines[index + 1] ?? '') === reference
+          ? index + 2
+          : index + 1;
+      const numericLines = lines.slice(
+        numericStartIndex,
+        numericStartIndex + 4,
+      );
+      const sequentialValues = this.resolveQuantityPriceTotal(
+        numericLines.flatMap((numericLine) => this.extractNumbers(numericLine)),
+      );
+
+      if (!sequentialValues) {
+        continue;
+      }
+
+      items.push(
+        this.toInvoiceItem({
+          descriptionRaw: known.descriptionRaw,
+          reference,
+          quantity: sequentialValues.quantity,
+          unitPrice: sequentialValues.unitPrice,
+          totalAmount: sequentialValues.totalAmount,
+          rowIndex: index,
+          pageNumber,
+          sourceLines: lines.slice(index, numericStartIndex + 4),
+          extractorName: 'interpack-invoice-known-description',
+          originalQuantity: sequentialValues.quantity,
+          originalUnitPrice: sequentialValues.unitPrice,
+        }),
+      );
+    }
+
+    return items;
   }
 
   private extractKnownReferenceInlineRows(
@@ -501,6 +589,12 @@ export class InterpackExtractorService {
   }
 
   private resolveResmaMatchCode(descriptionRaw: string) {
+    const knownDescription = this.findKnownDescription(descriptionRaw);
+
+    if (knownDescription) {
+      return knownDescription.matchCode;
+    }
+
     const normalized = this.normalize(descriptionRaw);
 
     if (
@@ -639,6 +733,31 @@ export class InterpackExtractorService {
         normalized.includes('celulosa')
       );
     });
+  }
+
+  private findKnownDescription(value: string) {
+    const normalized = this.normalize(value);
+
+    if (
+      normalized.includes('resma') &&
+      normalized.includes('antigrasa') &&
+      /75\s*[x*]\s*100/i.test(value) &&
+      /500\s*h/i.test(value)
+    ) {
+      return {
+        descriptionRaw: 'RESMA ANTIGRASA 75*100 500H',
+        matchCode: 'INTERPACK_RESMA_ANTIGRASA_75X100_500H',
+      };
+    }
+
+    return undefined;
+  }
+
+  private removeKnownDescription(value: string) {
+    return value.replace(
+      /resma\s+antigrasa\s+75\s*[x*]\s*100\s+500\s*h(?:ojas)?/i,
+      ' ',
+    );
   }
 
   private knownDescriptionByReference(reference: string) {
@@ -801,16 +920,131 @@ export class InterpackExtractorService {
     const raw = rawData as
       | {
           ocr?: {
-            tables?: OcrTable[];
+            tables?: unknown[];
           };
         }
       | null
       | undefined;
 
-    return raw?.ocr?.tables ?? [];
+    return (raw?.ocr?.tables ?? [])
+      .map((table) => this.normalizeOcrTable(table))
+      .filter((table): table is OcrTable => Boolean(table));
   }
 
-  private cleanCells(row: string[]) {
+  private normalizeOcrTable(table: unknown): OcrTable | undefined {
+    if (!table || typeof table !== 'object') {
+      return undefined;
+    }
+
+    const candidate = table as {
+      page?: unknown;
+      rows?: unknown;
+      cells?: unknown;
+    };
+    const rows = Array.isArray(candidate.rows)
+      ? candidate.rows
+      : Array.isArray(candidate.cells)
+        ? candidate.cells
+        : [];
+
+    return {
+      page: typeof candidate.page === 'number' ? candidate.page : undefined,
+      rows: rows
+        .map((row) => this.normalizeOcrRow(row))
+        .filter((row) => row.length > 0),
+    };
+  }
+
+  private normalizeOcrRow(row: unknown): string[] {
+    if (Array.isArray(row)) {
+      return row.map((cell) => String(cell).trim()).filter(Boolean);
+    }
+
+    if (row && typeof row === 'object') {
+      const candidate = row as {
+        cells?: unknown;
+        text?: unknown;
+        content?: unknown;
+        value?: unknown;
+      };
+
+      if (Array.isArray(candidate.cells)) {
+        return candidate.cells
+          .map((cell) => String(cell).trim())
+          .filter(Boolean);
+      }
+
+      const text =
+        candidate.text ?? candidate.content ?? candidate.value ?? undefined;
+
+      return text === undefined ? [] : [String(text).trim()].filter(Boolean);
+    }
+
+    return row === undefined || row === null
+      ? []
+      : [String(row).trim()].filter(Boolean);
+  }
+
+  private getOcrLines(rawData?: Prisma.JsonValue | null) {
+    const raw = rawData as
+      | {
+          ocr?: {
+            lines?: unknown[];
+          };
+        }
+      | null
+      | undefined;
+
+    return (raw?.ocr?.lines ?? [])
+      .flatMap((line) => this.normalizeOcrLine(line))
+      .filter(Boolean);
+  }
+
+  private normalizeOcrLine(line: unknown): string[] {
+    if (typeof line === 'string') {
+      return [line.trim()].filter(Boolean);
+    }
+
+    if (Array.isArray(line)) {
+      return [
+        line
+          .map((cell) => String(cell).trim())
+          .filter(Boolean)
+          .join(' '),
+      ].filter(Boolean);
+    }
+
+    if (line && typeof line === 'object') {
+      const candidate = line as {
+        text?: unknown;
+        content?: unknown;
+        value?: unknown;
+        description?: unknown;
+        cells?: unknown;
+      };
+
+      if (Array.isArray(candidate.cells)) {
+        return [
+          candidate.cells
+            .map((cell) => String(cell).trim())
+            .filter(Boolean)
+            .join(' '),
+        ].filter(Boolean);
+      }
+
+      const text =
+        candidate.text ??
+        candidate.content ??
+        candidate.value ??
+        candidate.description;
+
+      return text === undefined ? [] : [String(text).trim()].filter(Boolean);
+    }
+
+    return [];
+  }
+
+  private cleanCells(row: unknown[]) {
     return row.map((cell) => String(cell).trim()).filter(Boolean);
   }
 
