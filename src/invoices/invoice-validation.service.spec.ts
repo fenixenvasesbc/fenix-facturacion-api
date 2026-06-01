@@ -13,6 +13,65 @@ describe('InvoiceValidationService', () => {
     service = new InvoiceValidationService();
   });
 
+  it('falls back to product description features when invoice match code is not found', () => {
+    const result = service.validate(
+      [
+        {
+          descriptionRaw: '24+11X32 GR-100 BOLSA BLANCA ASA RETORCIDA',
+          descriptionNormalized: '24 11x32 gr 100 bolsa blanca asa retorcida',
+          matchCode: 'GEN241132BO',
+          quantity: '2000.0000',
+          unit: PriceUnit.UNIT,
+          unitPrice: '0.107600',
+          totalAmount: '215.2000',
+          currency: 'EUR',
+          rowIndex: 0,
+          rawData: {},
+        },
+      ],
+      [
+        {
+          id: 'price-list-item-id',
+          priceListId: 'price-list-id',
+          supplierId: 'supplier-id',
+          canonicalProductId: null,
+          matchCode: 'GEN241132B',
+          lengthMm: null,
+          widthMm: null,
+          heightMm: null,
+          descriptionRaw: '24X11X32 GR-80 BOLSA PAPEL BLANCA ASA RETORCIDA',
+          descriptionNormalized:
+            '24x11x32 gr 80 bolsa papel blanca asa retorcida',
+          channel: null,
+          priceAmount: '107.6000',
+          currency: 'EUR',
+          priceUnit: PriceUnit.THOUSAND_UNITS,
+          priceQuantityBase: '1000',
+          rawUnitLabel: 'millar',
+          normalizedUnitPrice: '0.107600',
+          normalizedUnit: PriceUnit.UNIT,
+          discountPercent: null,
+          taxPercent: null,
+          status: PriceItemStatus.ACTIVE,
+          rowIndex: null,
+          pageNumber: null,
+          rawData: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          canonicalProduct: null,
+          aliases: [],
+          priceRules: [],
+        },
+      ],
+    );
+
+    expect(result.response.summary).toMatchObject({
+      totalItems: 1,
+      ok: 1,
+      notFound: 0,
+    });
+  });
+
   it('returns differences when invoiced price is higher than negotiated price', () => {
     const result = service.validate(
       [

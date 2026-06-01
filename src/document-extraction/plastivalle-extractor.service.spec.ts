@@ -94,4 +94,42 @@ GEN321740FUC 32+17X40 GR 80 BOLSAS PAPEL FUCSIA ASA PLANA
       totalAmount: '566.1000',
     });
   });
+
+  it('keeps supplier reference as match code when it has an extra suffix', () => {
+    const items = service.extractInvoice({
+      supplierName: 'PLASTIVALLE',
+      rawText: `
+GEN241132BO
+24+11X32 GR-100 BOLSA BLANCA ASA RETORCIDA
+2,000
+107,600
+215,200
+GEN451440BO
+45+14X40 GR-100 BOLSA BLANCA ASA RETORCIDA
+2,000
+185,400
+370,800
+`,
+    });
+
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      matchCode: 'GEN241132BO',
+      quantity: '2000.0000',
+      unitPrice: '0.107600',
+      totalAmount: '215.2000',
+    });
+    expect(items[0].rawData.extractor).not.toMatchObject({
+      alternateMatchCodes: expect.any(Array),
+    });
+    expect(items[1]).toMatchObject({
+      matchCode: 'GEN451440BO',
+      quantity: '2000.0000',
+      unitPrice: '0.185400',
+      totalAmount: '370.8000',
+    });
+    expect(items[1].rawData.extractor).not.toMatchObject({
+      alternateMatchCodes: expect.any(Array),
+    });
+  });
 });

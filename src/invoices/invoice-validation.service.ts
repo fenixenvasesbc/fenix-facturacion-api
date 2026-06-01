@@ -229,7 +229,13 @@ export class InvoiceValidationService {
 
     const textScore = Math.max(
       ...candidates.map((candidate) =>
-        this.tokenSimilarity(invoiceItem.descriptionNormalized, candidate),
+        Math.max(
+          this.tokenSimilarity(invoiceItem.descriptionNormalized, candidate),
+          this.productFeatureSimilarity(
+            invoiceItem.descriptionNormalized,
+            candidate,
+          ),
+        ),
       ),
       0,
     );
@@ -296,6 +302,65 @@ export class InvoiceValidationService {
     const union = new Set([...leftTokens, ...rightTokens]);
 
     return intersection.length / union.size;
+  }
+
+  private productFeatureSimilarity(left: string, right: string) {
+    const leftFeatures = this.extractProductFeatures(left);
+    const rightFeatures = this.extractProductFeatures(right);
+
+    if (!leftFeatures || !rightFeatures) {
+      return 0;
+    }
+
+    const sizeMatches = leftFeatures.size === rightFeatures.size;
+    const colorMatches = leftFeatures.color === rightFeatures.color;
+    const handleMatches = leftFeatures.handle === rightFeatures.handle;
+
+    if (sizeMatches && colorMatches && handleMatches) {
+      return 0.92;
+    }
+
+    if (sizeMatches && colorMatches) {
+      return 0.72;
+    }
+
+    return 0;
+  }
+
+  private extractProductFeatures(value: string) {
+    const normalized = this.normalize(value);
+    const sizeMatch = /(\d+)\D+(\d+)\D+(\d+)/i.exec(normalized);
+
+    if (!sizeMatch) {
+      return undefined;
+    }
+
+    const color = normalized.includes('blanc')
+      ? 'BLANCO'
+      : normalized.includes('marron')
+        ? 'MARRON'
+        : normalized.includes('negra')
+          ? 'NEGRO'
+          : normalized.includes('fucsia')
+            ? 'FUCSIA'
+            : normalized.includes('kraft')
+              ? 'KRAFT'
+              : undefined;
+    const handle = normalized.includes('retorcida')
+      ? 'RETORCIDA'
+      : normalized.includes('plana')
+        ? 'PLANA'
+        : undefined;
+
+    if (!color || !handle) {
+      return undefined;
+    }
+
+    return {
+      size: `${sizeMatch[1]}X${sizeMatch[2]}X${sizeMatch[3]}`,
+      color,
+      handle,
+    };
   }
 
   private unitsAreCompatible(
