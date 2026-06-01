@@ -1,0 +1,245 @@
+{
+  "proveedor": "Plastivalle",
+  "moneda": "EUR",
+  "unidad_precio": "precio_por_millar",
+  "productos": [
+    {
+      "medida": "18x8x24",
+      "color": "Blanco",
+      "tipo_asa": "plana",
+      "precio": 65.7,
+      "descripcion": "18X8X24 GR-80 BOLSA PAPEL BLANCA ASA PLANA",
+      "matchcode": "GEN18824B"
+    },
+    {
+      "medida": "18x8x24",
+      "color": "Marrón",
+      "tipo_asa": "plana",
+      "precio": 61.6,
+      "descripcion": "18X8X24 GR-80 BOLSA PAPEL MARRÓN ASA PLANA",
+      "matchcode": "GEN18824M"
+    },
+    {
+      "medida": "24x11x32",
+      "color": "Blanco",
+      "tipo_asa": "retorcida",
+      "precio": 107.6,
+      "descripcion": "24X11X32 GR-80 BOLSA PAPEL BLANCA ASA RETORCIDA",
+      "matchcode": "GEN241132B"
+    },
+    {
+      "medida": "24x11x32",
+      "color": "Marrón",
+      "tipo_asa": "retorcida",
+      "precio": 98.6,
+      "descripcion": "24X11X32 GR-80 BOLSA PAPEL MARRÓN ASA RETORCIDA",
+      "matchcode": "GEN241132M"
+    },
+    {
+      "medida": "25x9x34",
+      "color": "Marrón",
+      "tipo_asa": "plana",
+      "precio": 78.0,
+      "descripcion": "25X9X34 GR-80 BOLSA PAPEL MARRÓN ASA PLANA",
+      "matchcode": "GEN25934M"
+    },
+    {
+      "medida": "25x9x34",
+      "color": "Blanco",
+      "tipo_asa": "plana",
+      "precio": 86.6,
+      "descripcion": "25X9X34 GR-80 BOLSA PAPEL BLANCA ASA PLANA",
+      "matchcode": "GEN25934B"
+    },
+    {
+      "medida": "25x9x34",
+      "color": "Negra",
+      "tipo_asa": "plana",
+      "precio": 110.5,
+      "descripcion": "25X9X34 GR-80 BOLSA PAPEL NEGRA ASA PLANA",
+      "matchcode": "GEN25934N"
+    },
+    {
+      "medida": "30x19x32",
+      "color": "Blanco",
+      "tipo_asa": "retorcida",
+      "precio": 158.6,
+      "descripcion": "30X19X32 GR-80 BOLSA PAPEL BLANCA ASA RETORCIDA",
+      "matchcode": "GEN301932B"
+    },
+    {
+      "medida": "30x19x32",
+      "color": "Marrón",
+      "tipo_asa": "retorcida",
+      "precio": 138.1,
+      "descripcion": "30X19X32 GR-80 BOLSA PAPEL MARRÓN ASA RETORCIDA",
+      "matchcode": "GEN301932M"
+    },
+    {
+      "medida": "32x12x41",
+      "color": "Kraft",
+      "tipo_asa": "plana",
+      "precio": 120.0,
+      "descripcion": "32X12X41 GR-80 BOLSA PAPEL KRAFT ASA PLANA",
+      "matchcode": "GEN321241K"
+    },
+    {
+      "medida": "32x12x41",
+      "color": "Blanca",
+      "tipo_asa": "plana",
+      "precio": 126.5,
+      "descripcion": "32X12X41 GR-80 BOLSA PAPEL BLANCA ASA PLANA",
+      "matchcode": "GEN321241B"
+    },
+    {
+      "medida": "32x17x28",
+      "color": "Marrón",
+      "tipo_asa": "plana",
+      "precio": 99.7,
+      "descripcion": "32X17X28 GR-80 BOLSA PAPEL MARRÓN ASA PLANA",
+      "matchcode": "GEN321728M"
+    },
+    {
+      "medida": "32x17x28",
+      "color": "Blanco",
+      "tipo_asa": "plana",
+      "precio": 112.7,
+      "descripcion": "32X17X28 GR-80 BOLSA PAPEL BLANCA ASA PLANA",
+      "matchcode": "GEN321728B"
+    },
+    {
+      "medida": "32x17x40",
+      "color": "Blanca",
+      "tipo_asa": "plana",
+      "precio": 163.7,
+      "descripcion": "32X17X40 GR-80 BOLSA PAPEL BLANCA ASA PLANA",
+      "matchcode": "GEN321740B"
+    },
+    {
+      "medida": "32x17x40",
+      "color": "Negra",
+      "tipo_asa": "plana",
+      "precio": 188.8,
+      "descripcion": "32X17X40 GR-80 BOLSA PAPEL NEGRA ASA PLANA",
+      "matchcode": "GEN321740N"
+    },
+    {
+      "medida": "32x17x40",
+      "color": "Fucsia",
+      "tipo_asa": "plana",
+      "precio": 188.7,
+      "descripcion": "32X17X40 GR-80 BOLSA PAPEL FUCSIA ASA PLANA",
+      "matchcode": "GEN321740FUC"
+    },
+    {
+      "medida": "32x17x40",
+      "color": "Marrón",
+      "tipo_asa": "plana",
+      "precio": 146.2,
+      "descripcion": "32X17X40 GR-80 BOLSA PAPEL MARRÓN ASA PLANA",
+      "matchcode": "GEN321740M"
+    },
+    {
+      "medida": "32x12x42",
+      "color": "Marrón",
+      "tipo_asa": "retorcida",
+      "precio": 117.1,
+      "descripcion": "32X12X42 GR-80 BOLSA PAPEL MARRÓN ASA RETORCIDA",
+      "matchcode": "GEN321242M"
+    },
+    {
+      "medida": "32x12x42",
+      "color": "Blanca",
+      "tipo_asa": "retorcida",
+      "precio": 126.5,
+      "descripcion": "32X12X42 GR-80 BOLSA PAPEL BLANCA ASA RETORCIDA",
+      "matchcode": "GEN321242B"
+    },
+    {
+      "medida": "32x22x25",
+      "color": "Blanca",
+      "tipo_asa": "plana",
+      "precio": 125.5,
+      "descripcion": "32X22X25 GR-80 BOLSA PAPEL BLANCA ASA PLANA",
+      "matchcode": "GEN322225B"
+    },
+    {
+      "medida": "32x22x25",
+      "color": "Marrón",
+      "tipo_asa": "plana",
+      "precio": 105.5,
+      "descripcion": "32X22X25 GR-80 BOLSA PAPEL MARRÓN ASA PLANA",
+      "matchcode": "GEN322225M"
+    },
+    {
+      "medida": "37x12x37",
+      "color": "Marrón",
+      "tipo_asa": "plana",
+      "precio": 137.2,
+      "descripcion": "37X12X37 GR-80 BOLSA PAPEL MARRÓN ASA PLANA",
+      "matchcode": "GEN371237M"
+    },
+    {
+      "medida": "37x12x37",
+      "color": "Blanca",
+      "tipo_asa": "plana",
+      "precio": 149.8,
+      "descripcion": "37X12X37 GR-80 BOLSA PAPEL BLANCA ASA PLANA",
+      "matchcode": "GEN371237B"
+    },
+    {
+      "medida": "45x14x40",
+      "color": "Blanca",
+      "tipo_asa": "plana",
+      "precio": 185.4,
+      "descripcion": "45X14X40 GR-80 BOLSA PAPEL BLANCA ASA PLANA",
+      "matchcode": "GEN451440B"
+    },
+    {
+      "medida": "45x14x40",
+      "color": "Marrón",
+      "tipo_asa": "plana",
+      "precio": 169.6,
+      "descripcion": "45X14X40 GR-80 BOLSA PAPEL MARRÓN ASA PLANA",
+      "matchcode": "GEN451440M"
+    },
+    {
+      "medida": "31x18x40",
+      "color": "Kraft",
+      "tipo_asa": "plana",
+      "descripcion": "Americanas Take Away",
+      "precio": 92.0,
+      "matchcode": "TA311840K"
+    },
+    {
+      "medida": "14x7x40",
+      "color": "Kraft 900",
+      "tipo_asa": "retorcida",
+      "precio": 83.6,
+      "descripcion": "14X7X40 GR-80 BOLSA PAPEL KRAFT 900 ASA RETORCIDA",
+      "matchcode": "GEN14740K"
+    },
+    {
+      "medida": "14x7x40",
+      "color": "Blanca 900",
+      "tipo_asa": "retorcida",
+      "precio": 89.3,
+      "descripcion": "14X7X40 GR-80 BOLSA PAPEL BLANCA 900 ASA RETORCIDA",
+      "matchcode": "GEN14740B"
+    },
+    {
+      "medida": "110x120",
+      "color": "Blanca",
+      "descripcion": "G240- SON FUNDAS PARA METER SACOS",
+      "precio": 462,
+      "matchcode": "AN110120PP"
+    },
+    {
+      "medida": "14x55",
+      "color": "Blanca",
+      "descripcion": "G-100 BOLSAS ANÓNIMAS P-P",
+      "precio": 20.5,
+      "matchcode": "AN1455PP"
+    }
+  ]
+}

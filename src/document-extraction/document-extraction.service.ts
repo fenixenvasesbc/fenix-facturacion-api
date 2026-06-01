@@ -7,6 +7,7 @@ import {
 import { DrakoExtractorService } from './drako-extractor.service';
 import { InterpackExtractorService } from './interpack-extractor.service';
 import { MoraYGomaExtractorService } from './mora-y-goma-extractor.service';
+import { PlastivalleExtractorService } from './plastivalle-extractor.service';
 import { SaicaExtractorService } from './saica-extractor.service';
 import { SotoExtractorService } from './soto-extractor.service';
 
@@ -18,6 +19,7 @@ export class DocumentExtractionService {
     private readonly drakoExtractor: DrakoExtractorService,
     private readonly interpackExtractor: InterpackExtractorService,
     private readonly moraYGomaExtractor: MoraYGomaExtractorService,
+    private readonly plastivalleExtractor: PlastivalleExtractorService,
     private readonly saicaExtractor: SaicaExtractorService,
     private readonly sotoExtractor: SotoExtractorService,
   ) {}
@@ -45,6 +47,18 @@ export class DocumentExtractionService {
       if (items.length > 0) {
         this.logger.log(
           `Structured invoice extraction succeeded. extractor=interpack count=${items.length}`,
+        );
+
+        return items;
+      }
+    }
+
+    if (this.plastivalleExtractor.supports(input)) {
+      const items = this.plastivalleExtractor.extractInvoice(input);
+
+      if (items.length > 0) {
+        this.logger.log(
+          `Structured invoice extraction succeeded. extractor=plastivalle count=${items.length}`,
         );
 
         return items;
