@@ -157,14 +157,20 @@ export class InvoiceValidationService {
     const exactMatch = this.findExactMatchCodeMatch(invoiceItem, activeItems);
 
     if (exactMatch) {
+      this.logMatchDecision(invoiceItem, exactMatch, 'matchCode exacto', 1);
       return exactMatch;
     }
 
     let bestMatch: NegotiatedItem | undefined;
     let bestScore = 0;
+    const candidates: Array<{ item: NegotiatedItem; score: number }> = [];
 
     for (const item of activeItems) {
       const score = this.matchScore(invoiceItem, item);
+
+      if (score > 0) {
+        candidates.push({ item, score });
+      }
 
       if (
         score > bestScore ||
@@ -178,7 +184,15 @@ export class InvoiceValidationService {
       }
     }
 
-    return bestScore >= 0.55 ? bestMatch : undefined;
+    if (bestScore >= 0.55 && bestMatch) {
+      this.logMatchDecision(invoiceItem, bestMatch, 'descripcion/fallback', bestScore);
+
+      return bestMatch;
+    }
+
+    this.logNoMatchDecision(invoiceItem, candidates);
+
+    return undefined;
   }
 
   private findExactMatchCodeMatch(
@@ -242,6 +256,51 @@ export class InvoiceValidationService {
       Math.max(textScore, matchCodeScore) +
         this.dimensionScore(invoiceItem, item) +
         this.channelScore(invoiceItem, item),
+    );
+  }
+
+  private logMatchDecision(
+    invoiceItem: ParsedInvoiceItem,
+    matchedItem: NegotiatedItem,
+    strategy: string,
+    score: number,
+  ) {
+    this.logger.log(
+      [
+        'Invoice item matched',
+        `strategy=${strategy}`,
+        `score=${this.decimalString(score, 4)}`,
+        `invoiceMatchCode=${invoiceItem.matchCode ?? '-'}`,
+        `invoiceDescription="${invoiceItem.descriptionRaw}"`,
+        `matchedId=${matchedItem.id}`,
+        `matchedMatchCode=${matchedItem.matchCode ?? '-'}`,
+        `matchedDescription="${matchedItem.descriptionRaw}"`,
+        `matchedNormalizedUnitPrice=${matchedItem.normalizedUnitPrice?.toString() ?? '-'}`,
+        `matchedPriceAmount=${matchedItem.priceAmount.toString()}`,
+      ].join(' | '),
+    );
+  }
+
+  private logNoMatchDecision(
+    invoiceItem: ParsedInvoiceItem,
+    candidates: Array<{ item: NegotiatedItem; score: number }>,
+  ) {
+    const topCandidates = candidates
+      .sort((left, right) => right.score - left.score)
+      .slice(0, 5)
+      .map(
+        ({ item, score }) =>
+          `${item.matchCode ?? '-'}:${this.decimalString(score, 4)}:"${item.descriptionRaw}"`,
+      )
+      .join(' || ');
+
+    this.logger.warn(
+      [
+        'Invoice item not matched',
+        `invoiceMatchCode=${invoiceItem.matchCode ?? '-'}`,
+        `invoiceDescription="${invoiceItem.descriptionRaw}"`,
+        `topCandidates=${topCandidates || '-'}`,
+      ].join(' | '),
     );
   }
 
