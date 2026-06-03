@@ -229,12 +229,9 @@ export class InvoiceValidationService {
 
     const textScore = Math.max(
       ...candidates.map((candidate) =>
-        Math.max(
-          this.tokenSimilarity(invoiceItem.descriptionNormalized, candidate),
-          this.productFeatureSimilarity(
-            invoiceItem.descriptionNormalized,
-            candidate,
-          ),
+        this.descriptionSimilarity(
+          invoiceItem.descriptionNormalized,
+          candidate,
         ),
       ),
       0,
@@ -304,6 +301,20 @@ export class InvoiceValidationService {
     return intersection.length / union.size;
   }
 
+  private descriptionSimilarity(left: string, right: string) {
+    const leftFeatures = this.extractProductFeatures(left);
+    const rightFeatures = this.extractProductFeatures(right);
+
+    if (leftFeatures && rightFeatures) {
+      return this.productFeatureSimilarity(left, right);
+    }
+
+    return Math.max(
+      this.tokenSimilarity(left, right),
+      this.productFeatureSimilarity(left, right),
+    );
+  }
+
   private productFeatureSimilarity(left: string, right: string) {
     const leftFeatures = this.extractProductFeatures(left);
     const rightFeatures = this.extractProductFeatures(right);
@@ -337,7 +348,7 @@ export class InvoiceValidationService {
 
     const color = normalized.includes('blanc')
       ? 'BLANCO'
-      : normalized.includes('marron')
+      : normalized.includes('marron') || normalized.includes('marr')
         ? 'MARRON'
         : normalized.includes('negra')
           ? 'NEGRO'

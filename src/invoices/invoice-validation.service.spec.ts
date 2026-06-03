@@ -72,6 +72,160 @@ describe('InvoiceValidationService', () => {
     });
   });
 
+  it('keeps Plastivalle exact match codes before description fallback', () => {
+    const updatedAt = new Date('2026-06-01T00:00:00.000Z');
+    const negotiatedBase = {
+      priceListId: 'price-list-id',
+      supplierId: 'supplier-id',
+      canonicalProductId: null,
+      lengthMm: null,
+      widthMm: null,
+      heightMm: null,
+      channel: null,
+      currency: 'EUR',
+      priceUnit: PriceUnit.THOUSAND_UNITS,
+      priceQuantityBase: '1000',
+      rawUnitLabel: 'millar',
+      normalizedUnit: PriceUnit.UNIT,
+      discountPercent: null,
+      taxPercent: null,
+      status: PriceItemStatus.ACTIVE,
+      rowIndex: null,
+      pageNumber: null,
+      rawData: null,
+      createdAt: updatedAt,
+      updatedAt,
+      canonicalProduct: null,
+      aliases: [],
+      priceRules: [],
+    };
+
+    const result = service.validate(
+      [
+        {
+          descriptionRaw: '32+22X25 GR-80 BOLSA PAPEL MARRÓN ASA PLANA',
+          descriptionNormalized:
+            '32 22x25 gr 80 bolsa papel marron asa plana',
+          matchCode: 'GEN322225M',
+          quantity: '15000.0000',
+          unit: PriceUnit.UNIT,
+          unitPrice: '0.105500',
+          totalAmount: '1582.5000',
+          currency: 'EUR',
+          rowIndex: 1,
+          rawData: {},
+        },
+      ],
+      [
+        {
+          ...negotiatedBase,
+          id: 'gen-321728m',
+          matchCode: 'GEN321728M',
+          descriptionRaw: '32X17X28 GR-80 BOLSA PAPEL MARRÓN ASA PLANA',
+          descriptionNormalized:
+            '32x17x28 gr 80 bolsa papel marron asa plana',
+          priceAmount: '99.7000',
+          normalizedUnitPrice: '0.099700',
+        },
+        {
+          ...negotiatedBase,
+          id: 'gen-322225m',
+          matchCode: 'GEN322225M',
+          descriptionRaw: '32X22X25 GR-80 BOLSA PAPEL MARRÓN ASA PLANA',
+          descriptionNormalized:
+            '32x22x25 gr 80 bolsa papel marron asa plana',
+          priceAmount: '105.5000',
+          normalizedUnitPrice: '0.105500',
+        },
+      ],
+    );
+
+    expect(result.items[0].matchedItem?.matchCode).toBe('GEN322225M');
+    expect(result.response.summary).toMatchObject({
+      totalItems: 1,
+      ok: 1,
+      overcharges: 0,
+      notFound: 0,
+    });
+  });
+
+  it('matches Plastivalle bags by exact features when the supplier code is not found', () => {
+    const updatedAt = new Date('2026-06-01T00:00:00.000Z');
+    const negotiatedBase = {
+      priceListId: 'price-list-id',
+      supplierId: 'supplier-id',
+      canonicalProductId: null,
+      lengthMm: null,
+      widthMm: null,
+      heightMm: null,
+      channel: null,
+      currency: 'EUR',
+      priceUnit: PriceUnit.THOUSAND_UNITS,
+      priceQuantityBase: '1000',
+      rawUnitLabel: 'millar',
+      normalizedUnit: PriceUnit.UNIT,
+      discountPercent: null,
+      taxPercent: null,
+      status: PriceItemStatus.ACTIVE,
+      rowIndex: null,
+      pageNumber: null,
+      rawData: null,
+      createdAt: updatedAt,
+      updatedAt,
+      canonicalProduct: null,
+      aliases: [],
+      priceRules: [],
+    };
+
+    const result = service.validate(
+      [
+        {
+          descriptionRaw: '32+22X25 GR-80 BOLSA PAPEL MARRÓN ASA PLANA',
+          descriptionNormalized:
+            '32 22x25 gr 80 bolsa papel marron asa plana',
+          matchCode: 'GEN322225MO',
+          quantity: '15000.0000',
+          unit: PriceUnit.UNIT,
+          unitPrice: '0.105500',
+          totalAmount: '1582.5000',
+          currency: 'EUR',
+          rowIndex: 1,
+          rawData: {},
+        },
+      ],
+      [
+        {
+          ...negotiatedBase,
+          id: 'gen-321728m',
+          matchCode: 'GEN321728M',
+          descriptionRaw: '32X17X28 GR-80 BOLSA PAPEL MARRÃ“N ASA PLANA',
+          descriptionNormalized:
+            '32x17x28 gr 80 bolsa papel marrã n asa plana',
+          priceAmount: '99.7000',
+          normalizedUnitPrice: '0.099700',
+        },
+        {
+          ...negotiatedBase,
+          id: 'gen-322225m',
+          matchCode: 'GEN322225M',
+          descriptionRaw: '32X22X25 GR-80 BOLSA PAPEL MARRÃ“N ASA PLANA',
+          descriptionNormalized:
+            '32x22x25 gr 80 bolsa papel marrã n asa plana',
+          priceAmount: '105.5000',
+          normalizedUnitPrice: '0.105500',
+        },
+      ],
+    );
+
+    expect(result.items[0].matchedItem?.matchCode).toBe('GEN322225M');
+    expect(result.response.summary).toMatchObject({
+      totalItems: 1,
+      ok: 1,
+      overcharges: 0,
+      notFound: 0,
+    });
+  });
+
   it('returns differences when invoiced price is higher than negotiated price', () => {
     const result = service.validate(
       [
