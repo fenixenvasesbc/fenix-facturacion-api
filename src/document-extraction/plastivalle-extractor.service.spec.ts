@@ -112,7 +112,7 @@ GEN322225M
               page: 1,
               rows: [
                 ['GEN321728M'],
-                ['32+22X25 GR-80 BOLSA PAPEL MARRÓN ASA PLANA'],
+                ['32+22X25 GR-80 BOLSA PAPEL MARRóN ASA PLANA'],
                 ['15,000'],
                 ['105,500'],
                 ['1.582,500'],

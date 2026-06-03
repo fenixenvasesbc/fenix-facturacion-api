@@ -320,7 +320,7 @@ export class PlastivalleExtractorService {
 
     for (const item of items) {
       const key = [
-        item.descriptionRaw,
+        item.descriptionNormalized || this.normalize(item.descriptionRaw),
         item.quantity ?? '',
         item.unitPrice,
         item.totalAmount ?? '',
