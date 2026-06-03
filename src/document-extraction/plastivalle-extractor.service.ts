@@ -262,11 +262,26 @@ export class PlastivalleExtractorService {
   }
 
   private deriveMatchCodeFromDescription(descriptionRaw: string) {
+    const features = this.extractBagFeatures(descriptionRaw);
+
+    if (!features) {
+      return undefined;
+    }
+
+    return `GEN${features.size}${features.color}`;
+  }
+
+  private extractBagFeatures(descriptionRaw: string) {
     const normalized = this.normalize(descriptionRaw);
+
+    if (!normalized.includes('bolsa') || !normalized.includes('asa')) {
+      return undefined;
+    }
+
     const size = /(\d+)\s*[x+]\s*(\d+)\s*x\s*(\d+)/i.exec(descriptionRaw);
     const color = normalized.includes('blanc')
       ? 'B'
-      : normalized.includes('marron')
+      : normalized.includes('marron') || normalized.includes('marr')
         ? 'M'
         : normalized.includes('negra')
           ? 'N'
@@ -275,12 +290,21 @@ export class PlastivalleExtractorService {
             : normalized.includes('kraft')
               ? 'K'
               : undefined;
+    const handle = normalized.includes('plana')
+      ? 'PLANA'
+      : normalized.includes('retorcida')
+        ? 'RETORCIDA'
+        : undefined;
 
-    if (size && color) {
-      return `GEN${size[1]}${size[2]}${size[3]}${color}`;
+    if (!size || !color || !handle) {
+      return undefined;
     }
 
-    return undefined;
+    return {
+      size: `${size[1]}${size[2]}${size[3]}`,
+      color,
+      handle,
+    };
   }
 
   private isProductReference(value: string) {
@@ -292,24 +316,49 @@ export class PlastivalleExtractorService {
   }
 
   private dedupeItems(items: ExtractedInvoiceItem[]) {
-    const seen = new Set<string>();
+    const deduped = new Map<string, ExtractedInvoiceItem>();
 
-    return items.filter((item) => {
+    for (const item of items) {
       const key = [
-        item.reference ?? '',
         item.descriptionRaw,
         item.quantity ?? '',
         item.unitPrice,
         item.totalAmount ?? '',
       ].join('|');
+      const previous = deduped.get(key);
 
-      if (seen.has(key)) {
-        return false;
+      if (!previous || this.isBetterDuplicate(item, previous)) {
+        deduped.set(key, item);
       }
+    }
 
-      seen.add(key);
-      return true;
-    });
+    return [...deduped.values()];
+  }
+
+  private isBetterDuplicate(
+    candidate: ExtractedInvoiceItem,
+    current: ExtractedInvoiceItem,
+  ) {
+    const derived = this.deriveMatchCodeFromDescription(candidate.descriptionRaw);
+
+    if (derived) {
+      const candidateMatchesDescription =
+        this.normalizeReference(candidate.matchCode ?? '') ===
+        this.normalizeReference(derived);
+      const currentMatchesDescription =
+        this.normalizeReference(current.matchCode ?? '') ===
+        this.normalizeReference(derived);
+
+      if (candidateMatchesDescription !== currentMatchesDescription) {
+        return candidateMatchesDescription;
+      }
+    }
+
+    return (
+      !current.matchCode &&
+      Boolean(candidate.matchCode) &&
+      candidate.confidence >= current.confidence
+    );
   }
 
   private isNumericLine(value: string) {

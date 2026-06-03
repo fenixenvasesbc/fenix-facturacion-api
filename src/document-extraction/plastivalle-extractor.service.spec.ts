@@ -95,6 +95,105 @@ GEN321740FUC 32+17X40 GR 80 BOLSAS PAPEL FUCSIA ASA PLANA
     });
   });
 
+  it('deduplicates OCR duplicates and keeps the match code that fits the description', () => {
+    const items = service.extractInvoice({
+      supplierName: 'PLASTIVALLE',
+      rawText: `
+GEN322225M
+32+22X25 GR-80 BOLSA PAPEL MARRÓN ASA PLANA
+15,000
+105,500
+1.582,500
+`,
+      rawData: {
+        ocr: {
+          tables: [
+            {
+              page: 1,
+              rows: [
+                ['GEN321728M'],
+                ['32+22X25 GR-80 BOLSA PAPEL MARRÓN ASA PLANA'],
+                ['15,000'],
+                ['105,500'],
+                ['1.582,500'],
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      descriptionRaw: '32+22X25 GR-80 BOLSA PAPEL MARRÓN ASA PLANA',
+      matchCode: 'GEN322225M',
+      unitPrice: '0.105500',
+      totalAmount: '1582.5000',
+    });
+  });
+
+  it('does not reinterpret duplicated non-bag items whose match code is not derived from the description', () => {
+    const items = service.extractInvoice({
+      supplierName: 'PLASTIVALLE',
+      rawText: `
+AN1455PP
+14X55 G-100 BOLSAS ANÃ“NIMAS P-P
+35,100
+20,500
+719,550
+`,
+      rawData: {
+        ocr: {
+          tables: [
+            {
+              page: 1,
+              rows: [
+                ['GEN1455B'],
+                ['14X55 G-100 BOLSAS ANÃ“NIMAS P-P'],
+                ['35,100'],
+                ['20,500'],
+                ['719,550'],
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      descriptionRaw: '14X55 G-100 BOLSAS ANÃ“NIMAS P-P',
+      matchCode: 'AN1455PP',
+      unitPrice: '0.020500',
+      totalAmount: '719.5500',
+    });
+  });
+
+  it('keeps separate items when descriptions or measurements are different even if amounts match', () => {
+    const items = service.extractInvoice({
+      supplierName: 'PLASTIVALLE',
+      rawText: `
+GEN321728M
+32+17X28 BOLSAS PAPEL MARRÃ“N ASA PLANA
+1,000
+99,700
+99,700
+GEN322225M
+32+22X25 GR-80 BOLSA PAPEL MARRÃ“N ASA PLANA
+1,000
+99,700
+99,700
+`,
+    });
+
+    expect(items).toHaveLength(2);
+    expect(items.map((item) => item.matchCode)).toEqual([
+      'GEN321728M',
+      'GEN322225M',
+    ]);
+  });
+
+
   it('keeps supplier reference as match code when it has an extra suffix', () => {
     const items = service.extractInvoice({
       supplierName: 'PLASTIVALLE',
