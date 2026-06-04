@@ -131,7 +131,8 @@ export class AiInvoiceInterpreterService {
     }
 
     const enabledSuppliers = (
-      process.env.OPENAI_INVOICE_AI_SUPPLIERS ?? 'interpack,plastivalle'
+      process.env.OPENAI_INVOICE_AI_SUPPLIERS ??
+      'interpack,plastivalle,saica,saika,soto,mora y goma,drako'
     )
       .split(',')
       .map((value) => this.normalize(value))

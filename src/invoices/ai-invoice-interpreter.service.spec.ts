@@ -400,6 +400,170 @@ describe('AiInvoiceInterpreterService', () => {
     expect(result.items).toHaveLength(1);
     expect(result.items[0].matchCode).toBe('GEN241132B');
   });
+
+  it('enables Saica and Soto by default for drop-only AI review', async () => {
+    delete process.env.OPENAI_INVOICE_AI_SUPPLIERS;
+    const service = new AiInvoiceInterpreterService();
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        output_text: JSON.stringify({
+          corrections: [
+            {
+              itemIndex: 1,
+              action: 'DROP',
+              matchCode: null,
+              quantity: null,
+              unit: null,
+              unitPrice: null,
+              totalAmount: null,
+              confidence: 0.96,
+              reason: 'Tax or footer line, not a product row.',
+            },
+          ],
+        }),
+      }),
+    } as Response);
+
+    const invoiceItems = [
+      {
+        descriptionRaw: 'PIZZA 30 ANONIMA MARRON SIN PAQUETES',
+        descriptionNormalized: 'pizza 30 anonima marron sin paquetes',
+        matchCode: 'PIZZA_30',
+        quantity: '1000.0000',
+        unit: PriceUnit.UNIT,
+        unitPrice: '0.129050',
+        totalAmount: '129.0500',
+        currency: 'EUR',
+        rowIndex: 0,
+        rawData: {},
+      },
+      {
+        descriptionRaw: '% I.V.A. 21,00',
+        descriptionNormalized: 'i v a 21 00',
+        matchCode: 'I.V.A.',
+        quantity: '1.0000',
+        unit: PriceUnit.UNIT,
+        unitPrice: '27.100000',
+        totalAmount: '27.1000',
+        currency: 'EUR',
+        rowIndex: 1,
+        rawData: {},
+      },
+    ];
+
+    const result = await service.interpretItems({
+      supplierName: 'SAICA PACK',
+      invoiceItems,
+      validationItems: [
+        {
+          invoiceItem: invoiceItems[0],
+          validationStatus: InvoiceItemValidationStatus.OK,
+        },
+        {
+          invoiceItem: invoiceItems[1],
+          validationStatus: InvoiceItemValidationStatus.PRODUCTO_NO_ENCONTRADO,
+        },
+      ],
+      negotiatedItems: [
+        negotiatedItem({
+          matchCode: 'PIZZA_30',
+          descriptionRaw: 'PIZZA 30 ANONIMA MARRON SIN PAQUETES',
+          priceAmount: '0.12905',
+          normalizedUnitPrice: '0.12905',
+        }),
+      ],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      attempted: true,
+      appliedCorrections: 1,
+    });
+    expect(result.items).toHaveLength(1);
+  });
+
+  it('enables Mora y Goma and Drako by default for drop-only AI review', async () => {
+    delete process.env.OPENAI_INVOICE_AI_SUPPLIERS;
+    const service = new AiInvoiceInterpreterService();
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        output_text: JSON.stringify({
+          corrections: [
+            {
+              itemIndex: 1,
+              action: 'DROP',
+              matchCode: null,
+              quantity: null,
+              unit: null,
+              unitPrice: null,
+              totalAmount: null,
+              confidence: 0.96,
+              reason: 'Footer total, not a product row.',
+            },
+          ],
+        }),
+      }),
+    } as Response);
+
+    const invoiceItems = [
+      {
+        descriptionRaw: 'BOLSA PAPEL MARRON ASA PLANA',
+        descriptionNormalized: 'bolsa papel marron asa plana',
+        matchCode: 'DRAKO_BOLSA_MARRON',
+        quantity: '1000.0000',
+        unit: PriceUnit.UNIT,
+        unitPrice: '0.078000',
+        totalAmount: '78.0000',
+        currency: 'EUR',
+        rowIndex: 0,
+        rawData: {},
+      },
+      {
+        descriptionRaw: 'TOTAL FACTURA',
+        descriptionNormalized: 'total factura',
+        matchCode: null,
+        quantity: '1.0000',
+        unit: PriceUnit.UNIT,
+        unitPrice: '78.000000',
+        totalAmount: '78.0000',
+        currency: 'EUR',
+        rowIndex: 1,
+        rawData: {},
+      },
+    ];
+
+    const result = await service.interpretItems({
+      supplierName: 'DRAKO IMPRESORES',
+      invoiceItems,
+      validationItems: [
+        {
+          invoiceItem: invoiceItems[0],
+          validationStatus: InvoiceItemValidationStatus.OK,
+        },
+        {
+          invoiceItem: invoiceItems[1],
+          validationStatus: InvoiceItemValidationStatus.PRODUCTO_NO_ENCONTRADO,
+        },
+      ],
+      negotiatedItems: [
+        negotiatedItem({
+          matchCode: 'DRAKO_BOLSA_MARRON',
+          descriptionRaw: 'BOLSA PAPEL MARRON ASA PLANA',
+          priceAmount: '0.078',
+          normalizedUnitPrice: '0.078',
+        }),
+      ],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      attempted: true,
+      appliedCorrections: 1,
+    });
+    expect(result.items).toHaveLength(1);
+  });
 });
 
 function negotiatedItem(input: {
