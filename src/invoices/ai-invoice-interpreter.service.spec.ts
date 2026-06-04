@@ -23,6 +23,7 @@ describe('AiInvoiceInterpreterService', () => {
   });
 
   it('applies a valid AI correction when match code exists and math is valid', async () => {
+    process.env.OPENAI_INVOICE_AI_ALLOW_UPDATE = 'true';
     const service = new AiInvoiceInterpreterService();
     const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: true,

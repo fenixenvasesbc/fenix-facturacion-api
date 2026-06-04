@@ -232,7 +232,8 @@ export class AiInvoiceInterpreterService {
     return [
       'Eres una capa de interpretación para facturas de proveedores.',
       'Tu tarea NO es decidir si hay sobrecoste.',
-      'Solo puedes proponer correcciones estructuradas de matchCode, cantidad, unidad y precio facturado cuando haya evidencia clara.',
+      'Tu tarea principal es identificar items que NO son productos reales y devolver action DROP.',
+      'Solo propongas UPDATE si hay evidencia clara y el sistema lo permite; si no, usa KEEP.',
       'Usa primero matchCode exacto contra negotiatedItems.matchCode.',
       'Si no hay matchCode exacto, usa descripción normalizada y referencias equivalentes.',
       'No inventes productos ni matchCodes: matchCode debe existir en negotiatedItems o ser null.',
@@ -358,10 +359,11 @@ export class AiInvoiceInterpreterService {
     const corrected = invoiceItems.map((item) => ({ ...item }));
     const droppedIndexes = new Set<number>();
     const corrections = interpretation.corrections ?? [];
+    const updatesAllowed = process.env.OPENAI_INVOICE_AI_ALLOW_UPDATE === 'true';
     let appliedCorrections = 0;
 
     this.logger.log(
-      `AI corrections received. returnedCorrections=${corrections.length} confidenceThreshold=${confidenceThreshold}`,
+      `AI corrections received. returnedCorrections=${corrections.length} confidenceThreshold=${confidenceThreshold} updatesAllowed=${updatesAllowed}`,
     );
 
     for (const correction of corrections) {
@@ -393,6 +395,13 @@ export class AiInvoiceInterpreterService {
       if (correction.action !== 'UPDATE') {
         this.logger.log(
           `AI correction skipped. action=${correction.action} itemIndex=${correction.itemIndex} confidence=${correction.confidence.toFixed(2)} reason="${correction.reason}"`,
+        );
+        continue;
+      }
+
+      if (!updatesAllowed) {
+        this.logger.warn(
+          `AI correction skipped. UPDATE disabled itemIndex=${correction.itemIndex} matchCode=${correction.matchCode ?? '-'} reason="${correction.reason}"`,
         );
         continue;
       }

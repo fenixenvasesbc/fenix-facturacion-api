@@ -265,14 +265,18 @@ export class InvoicesService {
             rawText: invoice.rawText,
             rawData: invoice.rawData,
           });
+    const sanitizedItems = this.sanitizeParsedItems(
+      invoice.supplier.name,
+      parsedItems,
+    );
 
-    if (parsedItems.length === 0) {
+    if (sanitizedItems.length === 0) {
       throw new BadRequestException(
         'No se detectaron productos facturados en el resultado OCR',
       );
     }
 
-    return parsedItems;
+    return sanitizedItems;
   }
 
   private async validate(
@@ -417,5 +421,86 @@ export class InvoicesService {
     requiresReview: number;
   }) {
     return `total=${summary.totalItems},ok=${summary.ok},overcharges=${summary.overcharges},undercharges=${summary.undercharges},notFound=${summary.notFound},unitMismatches=${summary.unitMismatches},requiresReview=${summary.requiresReview}`;
+  }
+
+  private sanitizeParsedItems(
+    supplierName: string,
+    items: ReturnType<InvoiceParserService['parse']>,
+  ) {
+    if (!this.normalize(supplierName).includes('interpack')) {
+      return items;
+    }
+
+    const sanitized = items.filter((item) => !this.isInterpackPhantomItem(item));
+    const removed = items.length - sanitized.length;
+
+    if (removed > 0) {
+      this.logger.warn(
+        `Sanitized parsed invoice items. supplier=${supplierName} removed=${removed} before=${items.length} after=${sanitized.length}`,
+      );
+    }
+
+    return sanitized;
+  }
+
+  private isInterpackPhantomItem(
+    item: ReturnType<InvoiceParserService['parse']>[number],
+  ) {
+    const description = this.normalize(item.descriptionRaw);
+    const matchCode = this.normalize(item.matchCode ?? '');
+
+    if (
+      description.includes('i v a') ||
+      matchCode === 'i v a' ||
+      description.includes('base imponible') ||
+      description.includes('bruto') ||
+      description.includes('descuento') ||
+      description.includes('total')
+    ) {
+      return true;
+    }
+
+    return (
+      this.looksLikeInterpackProductDescription(item.matchCode) &&
+      this.looksLikeInterpackReferenceFragment(item.descriptionRaw)
+    );
+  }
+
+  private looksLikeInterpackProductDescription(value?: string | null) {
+    const normalized = this.normalize(value ?? '');
+
+    return (
+      normalized.includes('periodico') ||
+      normalized.includes('paq') ||
+      normalized.includes('antigrasa') ||
+      normalized.includes('celulosa') ||
+      normalized.includes('bolsa')
+    );
+  }
+
+  private looksLikeInterpackReferenceFragment(value?: string | null) {
+    if (!value) {
+      return false;
+    }
+
+    const normalized = this.normalize(value);
+
+    return (
+      /[A-Z]/.test(value) &&
+      !normalized.includes('periodico') &&
+      !normalized.includes('paq') &&
+      !normalized.includes('antigrasa') &&
+      !normalized.includes('celulosa') &&
+      !normalized.includes('bolsa')
+    );
+  }
+
+  private normalize(value: string) {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
   }
 }
