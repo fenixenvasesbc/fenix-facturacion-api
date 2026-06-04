@@ -326,10 +326,10 @@ export class InterpackExtractorService {
       ]
         .filter(Boolean)
         .join(' ');
-      const reference = this.normalizeReference(lines[referenceIndex]);
-      const isBag = this.normalize(descriptionRaw).includes('bolsa');
-      const quantity = isBag ? quantityRaw * 1000 : quantityRaw;
-      const unitPrice = isBag ? priceRaw / 1000 : priceRaw;
+      const reference = this.normalizeInvoiceReference(lines[referenceIndex]);
+      const isThousandPriced = this.isThousandPricedInvoiceItem(descriptionRaw);
+      const quantity = isThousandPriced ? quantityRaw * 1000 : quantityRaw;
+      const unitPrice = isThousandPriced ? priceRaw / 1000 : priceRaw;
 
       items.push(
         this.toInvoiceItem({
@@ -744,7 +744,11 @@ export class InterpackExtractorService {
       index < Math.min(lines.length, startIndex + 4);
       index += 1
     ) {
-      if (this.isInterpackReference(lines[index])) {
+      if (
+        this.isInterpackReference(lines[index]) ||
+        (this.isTextReferenceCandidate(lines[index]) &&
+          this.nextThreeLinesAreNumeric(lines, index + 1))
+      ) {
         return index;
       }
     }
@@ -777,8 +781,38 @@ export class InterpackExtractorService {
     );
   }
 
+  private isTextReferenceCandidate(value: string) {
+    const trimmed = value.trim();
+    const normalized = this.normalize(trimmed);
+
+    if (
+      trimmed.length < 3 ||
+      trimmed.length > 40 ||
+      this.isNumericLine(trimmed) ||
+      this.isNoiseLine(normalized)
+    ) {
+      return false;
+    }
+
+    if (/[a-z]/.test(trimmed)) {
+      return false;
+    }
+
+    return /[A-Z]/.test(trimmed) && /^[A-Z0-9ÁÉÍÓÚÜÑ.,*+\-/\s]+$/.test(trimmed);
+  }
+
+  private nextThreeLinesAreNumeric(lines: string[], startIndex: number) {
+    return lines
+      .slice(startIndex, startIndex + 3)
+      .every((line) => this.isNumericLine(line));
+  }
+
   private isKnownInvoiceReference(reference: string) {
-    return ['CLICHES', 'RESMAANTIMP', 'RESMA2'].includes(reference);
+    return [
+      'CLICHES',
+      'RESMAANTIMP',
+      'RESMA2',
+    ].includes(reference);
   }
 
   private isGenericInterpackReference(reference?: string) {
@@ -787,6 +821,18 @@ export class InterpackExtractorService {
 
   private normalizeReference(value: string) {
     return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  private normalizeInvoiceReference(value: string) {
+    const rawReference = value.trim().replace(/\s+/g, ' ').toUpperCase();
+    const normalizedReference = this.normalizeReference(rawReference);
+    const knownReferences: Record<string, string> = {
+      CLICHES: 'CLICHES',
+      RESMAANTIMP: 'RESMAANTIMP',
+      RESMA2: 'RESMA2',
+    };
+
+    return knownReferences[normalizedReference] ?? rawReference;
   }
 
   private findKnownReference(cells: string[]) {
@@ -859,6 +905,15 @@ export class InterpackExtractorService {
     };
 
     return knownReferences[reference];
+  }
+
+  private isThousandPricedInvoiceItem(descriptionRaw: string) {
+    const normalized = this.normalize(descriptionRaw);
+
+    return (
+      normalized.includes('bolsa') ||
+      normalized.includes('paq') && /1000\s*h/i.test(descriptionRaw)
+    );
   }
 
   private extractTrailingDetail(value?: string) {

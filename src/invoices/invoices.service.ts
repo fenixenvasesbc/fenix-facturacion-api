@@ -13,6 +13,7 @@ import {
 import { DocumentExtractionService } from '../document-extraction/document-extraction.service';
 import { OcrService } from '../ocr/ocr.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AiInvoiceInterpreterService } from './ai-invoice-interpreter.service';
 import { FindInvoicesQueryDto } from './dto/find-invoices-query.dto';
 import { InvoiceParserService } from './invoice-parser.service';
 import { InvoiceValidationService } from './invoice-validation.service';
@@ -28,6 +29,7 @@ export class InvoicesService {
     private readonly invoiceParser: InvoiceParserService,
     private readonly invoiceValidation: InvoiceValidationService,
     private readonly documentExtraction: DocumentExtractionService,
+    private readonly aiInvoiceInterpreter: AiInvoiceInterpreterService,
   ) {}
 
   async uploadAndValidate(dto: UploadInvoiceDto, file: Express.Multer.File) {
@@ -281,6 +283,9 @@ export class InvoicesService {
       where: {
         id,
       },
+      include: {
+        supplier: true,
+      },
     });
 
     if (!invoice) {
@@ -320,10 +325,36 @@ export class InvoicesService {
       },
     });
 
-    const validation = this.invoiceValidation.validate(
+    const initialValidation = this.invoiceValidation.validate(
       parsedItems,
       negotiatedItems,
     );
+    const aiInterpretation = await this.aiInvoiceInterpreter.interpretItems({
+      supplierName: invoice.supplier.name,
+      invoiceItems: parsedItems,
+      validationItems: initialValidation.items,
+      negotiatedItems,
+    });
+    const validation =
+      aiInterpretation.appliedCorrections > 0
+        ? this.invoiceValidation.validate(
+            aiInterpretation.items,
+            negotiatedItems,
+          )
+        : initialValidation;
+
+    if (aiInterpretation.attempted) {
+      this.logger.log(
+        [
+          'AI invoice interpretation summary',
+          `invoiceId=${id}`,
+          `returnedCorrections=${aiInterpretation.returnedCorrections}`,
+          `appliedCorrections=${aiInterpretation.appliedCorrections}`,
+          `initial=${this.formatValidationSummary(initialValidation.response.summary)}`,
+          `final=${this.formatValidationSummary(validation.response.summary)}`,
+        ].join(' | '),
+      );
+    }
 
     await this.prisma.$transaction([
       this.prisma.invoiceItem.deleteMany({
@@ -374,5 +405,17 @@ export class InvoicesService {
     ]);
 
     return validation.response;
+  }
+
+  private formatValidationSummary(summary: {
+    totalItems: number;
+    ok: number;
+    overcharges: number;
+    undercharges: number;
+    notFound: number;
+    unitMismatches: number;
+    requiresReview: number;
+  }) {
+    return `total=${summary.totalItems},ok=${summary.ok},overcharges=${summary.overcharges},undercharges=${summary.undercharges},notFound=${summary.notFound},unitMismatches=${summary.unitMismatches},requiresReview=${summary.requiresReview}`;
   }
 }
