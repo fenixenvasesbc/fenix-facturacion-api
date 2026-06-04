@@ -315,6 +315,91 @@ describe('AiInvoiceInterpreterService', () => {
     expect(result.items).toHaveLength(1);
     expect(result.items[0].matchCode).toBe('RESMA AN.PER3');
   });
+
+  it('uses the same drop-only AI flow for Plastivalle tax fragments', async () => {
+    process.env.OPENAI_INVOICE_AI_SUPPLIERS = 'interpack,plastivalle';
+    const service = new AiInvoiceInterpreterService();
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        output_text: JSON.stringify({
+          corrections: [
+            {
+              itemIndex: 1,
+              action: 'DROP',
+              matchCode: null,
+              quantity: null,
+              unit: null,
+              unitPrice: null,
+              totalAmount: null,
+              confidence: 0.96,
+              reason: 'Tax line, not a Plastivalle product row.',
+            },
+          ],
+        }),
+      }),
+    } as Response);
+
+    const invoiceItems = [
+      {
+        descriptionRaw: '24+11X32 GR-80 BOLSA PAPEL BLANCA ASA RETORCIDA',
+        descriptionNormalized:
+          '24 11x32 gr 80 bolsa papel blanca asa retorcida',
+        matchCode: 'GEN241132B',
+        quantity: '2000.0000',
+        unit: PriceUnit.UNIT,
+        unitPrice: '0.107600',
+        totalAmount: '215.2000',
+        currency: 'EUR',
+        rowIndex: 0,
+        rawData: {},
+      },
+      {
+        descriptionRaw: '% I.V.A. 21,00',
+        descriptionNormalized: 'i v a 21 00',
+        matchCode: 'I.V.A.',
+        quantity: '1.0000',
+        unit: PriceUnit.UNIT,
+        unitPrice: '45.192000',
+        totalAmount: '45.1920',
+        currency: 'EUR',
+        rowIndex: 1,
+        rawData: {},
+      },
+    ];
+
+    const result = await service.interpretItems({
+      supplierName: 'PLASTIVALLE',
+      invoiceItems,
+      validationItems: [
+        {
+          invoiceItem: invoiceItems[0],
+          validationStatus: InvoiceItemValidationStatus.OK,
+        },
+        {
+          invoiceItem: invoiceItems[1],
+          validationStatus: InvoiceItemValidationStatus.PRODUCTO_NO_ENCONTRADO,
+        },
+      ],
+      negotiatedItems: [
+        negotiatedItem({
+          matchCode: 'GEN241132B',
+          descriptionRaw: '24X11X32 GR-80 BOLSA PAPEL BLANCA ASA RETORCIDA',
+          priceAmount: '107.6',
+          normalizedUnitPrice: '0.1076',
+        }),
+      ],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      attempted: true,
+      returnedCorrections: 1,
+      appliedCorrections: 1,
+    });
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].matchCode).toBe('GEN241132B');
+  });
 });
 
 function negotiatedItem(input: {
