@@ -417,6 +417,7 @@ export class InterpackExtractorService {
         this.isNoiseLine(normalized) ||
         this.isNumericLine(lines[index]) ||
         this.extractNumbers(lines[index]).length >= 2 ||
+        this.isModernInvoiceStart(lines, index) ||
         !this.isLegacyCategoryLine(normalized)
       ) {
         continue;
@@ -772,6 +773,15 @@ export class InterpackExtractorService {
     return undefined;
   }
 
+  private isModernInvoiceStart(lines: string[], index: number) {
+    const referenceIndex = this.findReferenceIndex(lines, index + 1);
+
+    return (
+      referenceIndex === index + 1 &&
+      this.nextThreeLinesAreNumeric(lines, referenceIndex + 1)
+    );
+  }
+
   private isInterpackReference(value: string) {
     const clean = this.normalizeReference(value);
 
@@ -1009,6 +1019,10 @@ export class InterpackExtractorService {
     );
 
     for (const item of normalizedItems) {
+      if (this.isSpuriousItem(item)) {
+        continue;
+      }
+
       if (
         this.isKnownReferenceMatchCode(item.matchCode) &&
         completeKnownMatchCodes.has(item.matchCode) &&
@@ -1035,6 +1049,61 @@ export class InterpackExtractorService {
     }
 
     return [...bestByKey.values()];
+  }
+
+  private isSpuriousItem(item: ExtractedInvoiceItem) {
+    const description = this.normalize(item.descriptionRaw);
+    const matchCode = this.normalize(item.matchCode ?? '');
+    const extractorName = (item.rawData as { extractor?: { name?: unknown } })
+      .extractor?.name;
+
+    if (
+      description.includes('i v a') ||
+      description.includes('iva') ||
+      matchCode === 'i v a' ||
+      matchCode === 'iva'
+    ) {
+      return true;
+    }
+
+    if (
+      extractorName === 'interpack-invoice-legacy' &&
+      this.looksLikeInvoiceDescription(item.matchCode) &&
+      this.looksLikeInvoiceReference(item.descriptionRaw)
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private looksLikeInvoiceDescription(value?: string | null) {
+    const normalized = this.normalize(value ?? '');
+
+    return (
+      normalized.includes('periodico') ||
+      normalized.includes('paq') ||
+      normalized.includes('bolsa') ||
+      normalized.includes('antigrasa') ||
+      normalized.includes('celulosa')
+    );
+  }
+
+  private looksLikeInvoiceReference(value?: string | null) {
+    if (!value) {
+      return false;
+    }
+
+    const normalized = this.normalize(value);
+
+    return (
+      this.isTextReferenceCandidate(value) &&
+      !normalized.includes('periodico') &&
+      !normalized.includes('paq') &&
+      !normalized.includes('bolsa') &&
+      !normalized.includes('antigrasa') &&
+      !normalized.includes('celulosa')
+    );
   }
 
   private normalizeKnownReferenceItem(

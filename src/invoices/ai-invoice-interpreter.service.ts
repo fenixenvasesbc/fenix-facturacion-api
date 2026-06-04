@@ -24,7 +24,7 @@ type ValidationItem = {
 
 type AiCorrection = {
   itemIndex: number;
-  action: 'KEEP' | 'UPDATE';
+  action: 'KEEP' | 'UPDATE' | 'DROP';
   matchCode: string | null;
   quantity: number | null;
   unit: PriceUnit | null;
@@ -236,6 +236,7 @@ export class AiInvoiceInterpreterService {
       'Usa primero matchCode exacto contra negotiatedItems.matchCode.',
       'Si no hay matchCode exacto, usa descripción normalizada y referencias equivalentes.',
       'No inventes productos ni matchCodes: matchCode debe existir en negotiatedItems o ser null.',
+      'Si el item no es un producto real sino IVA, total, descuento, cabecera o fragmento duplicado/invertido, devuelve action DROP.',
       'Si una descripción indica paquetes de 1000 hojas, puede interpretarse como precio por millar: cantidad normalizada = paquetes * 1000 y unitPrice normalizado = precio / 1000.',
       'La corrección debe cuadrar matemáticamente: quantity * unitPrice ~= totalAmount.',
       'Si no estás seguro, devuelve KEEP con confianza baja.',
@@ -270,7 +271,7 @@ export class AiInvoiceInterpreterService {
               },
               action: {
                 type: 'string',
-                enum: ['KEEP', 'UPDATE'],
+                enum: ['KEEP', 'UPDATE', 'DROP'],
               },
               matchCode: {
                 type: ['string', 'null'],
@@ -355,6 +356,7 @@ export class AiInvoiceInterpreterService {
         .map((value) => this.normalizeMatchCode(value)),
     );
     const corrected = invoiceItems.map((item) => ({ ...item }));
+    const droppedIndexes = new Set<number>();
     const corrections = interpretation.corrections ?? [];
     let appliedCorrections = 0;
 
@@ -372,16 +374,25 @@ export class AiInvoiceInterpreterService {
         continue;
       }
 
-      if (correction.action !== 'UPDATE') {
-        this.logger.log(
-          `AI correction skipped. action=${correction.action} itemIndex=${correction.itemIndex} confidence=${correction.confidence.toFixed(2)} reason="${correction.reason}"`,
+      if (correction.confidence < confidenceThreshold) {
+        this.logger.warn(
+          `AI correction skipped. Low confidence itemIndex=${correction.itemIndex} confidence=${correction.confidence.toFixed(2)} threshold=${confidenceThreshold} reason="${correction.reason}"`,
         );
         continue;
       }
 
-      if (correction.confidence < confidenceThreshold) {
-        this.logger.warn(
-          `AI correction skipped. Low confidence itemIndex=${correction.itemIndex} confidence=${correction.confidence.toFixed(2)} threshold=${confidenceThreshold} reason="${correction.reason}"`,
+      if (correction.action === 'DROP') {
+        droppedIndexes.add(correction.itemIndex);
+        appliedCorrections += 1;
+        this.logger.log(
+          `AI correction applied. action=DROP itemIndex=${correction.itemIndex} confidence=${correction.confidence.toFixed(2)} reason="${correction.reason}"`,
+        );
+        continue;
+      }
+
+      if (correction.action !== 'UPDATE') {
+        this.logger.log(
+          `AI correction skipped. action=${correction.action} itemIndex=${correction.itemIndex} confidence=${correction.confidence.toFixed(2)} reason="${correction.reason}"`,
         );
         continue;
       }
@@ -439,7 +450,12 @@ export class AiInvoiceInterpreterService {
       );
     }
 
-    return this.result(corrected, true, appliedCorrections, corrections.length);
+    return this.result(
+      corrected.filter((_, index) => !droppedIndexes.has(index)),
+      true,
+      appliedCorrections,
+      corrections.length,
+    );
   }
 
   private result(

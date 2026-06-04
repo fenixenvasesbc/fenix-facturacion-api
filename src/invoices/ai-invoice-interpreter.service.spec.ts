@@ -173,6 +173,88 @@ describe('AiInvoiceInterpreterService', () => {
       unitPrice: '12.500000',
     });
   });
+
+  it('drops phantom invoice fragments when AI returns DROP with enough confidence', async () => {
+    const service = new AiInvoiceInterpreterService();
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        output_text: JSON.stringify({
+          corrections: [
+            {
+              itemIndex: 1,
+              action: 'DROP',
+              matchCode: null,
+              quantity: null,
+              unit: null,
+              unitPrice: null,
+              totalAmount: null,
+              confidence: 0.96,
+              reason: 'IVA/tax fragment, not a product line.',
+            },
+          ],
+        }),
+      }),
+    } as Response);
+
+    const invoiceItems = [
+      {
+        descriptionRaw: 'RESMA ANT. PERIODICO 25*28 (PAQ. * 1000H.)',
+        descriptionNormalized: 'resma ant periodico 25 28 paq 1000h',
+        matchCode: 'RESMA AN.PER3',
+        quantity: '20000.0000',
+        unit: PriceUnit.UNIT,
+        unitPrice: '0.012500',
+        totalAmount: '250.0000',
+        currency: 'EUR',
+        rowIndex: 0,
+        rawData: {},
+      },
+      {
+        descriptionRaw: '% I.V.A. 2,00',
+        descriptionNormalized: 'i v a 2 00',
+        matchCode: 'I.V.A.',
+        quantity: '1.0000',
+        unit: PriceUnit.UNIT,
+        unitPrice: '26.800000',
+        totalAmount: '26.8000',
+        currency: 'EUR',
+        rowIndex: 1,
+        rawData: {},
+      },
+    ];
+
+    const result = await service.interpretItems({
+      supplierName: 'INTERPACK',
+      invoiceItems,
+      validationItems: [
+        {
+          invoiceItem: invoiceItems[0],
+          validationStatus: InvoiceItemValidationStatus.OK,
+        },
+        {
+          invoiceItem: invoiceItems[1],
+          validationStatus: InvoiceItemValidationStatus.PRODUCTO_NO_ENCONTRADO,
+        },
+      ],
+      negotiatedItems: [
+        negotiatedItem({
+          matchCode: 'RESMA AN.PER3',
+          descriptionRaw: 'RESMA ANT. PERIODICO 25*28 (PAQ. * 1000H.)',
+          priceAmount: '12.5000',
+          normalizedUnitPrice: '0.012500',
+        }),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      attempted: true,
+      returnedCorrections: 1,
+      appliedCorrections: 1,
+    });
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].matchCode).toBe('RESMA AN.PER3');
+  });
 });
 
 function negotiatedItem(input: {

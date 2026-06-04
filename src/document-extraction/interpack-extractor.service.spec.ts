@@ -412,4 +412,78 @@ RESMA ANT. PER
       '0.016000',
     ]);
   });
+
+  it('does not emit legacy duplicates or tax fragments for Interpack periodico invoices', () => {
+    const items = service.extractInvoice({
+      supplierName: 'INTERPACK',
+      rawText: `
+1544
+DANTE ENVASES BC, S.L.
+Código
+Artículo
+Total
+Cantidad
+Precio
+Dto
+FACTURA
+INTERPACK EMBALAJES AL ANDALUS S.L.
+Albarán 26-1.111 de fecha 14/05/2026
+RESMA ANT. PERIODICO 15,5*28 (PAQ. * 1000H.)
+RESMA ANT PER
+20,00
+8,000
+160,00
+RESMA ANT. PERIODICO 25*28 (PAQ. * 1000H.)
+RESMA AN.PER3
+20,00
+12,500
+250,00
+RESMA ANT. PERIODICO 28*34 (PAQ. * 1000H.)
+RESMA A.28*34
+20,00
+16,000
+320,00
+RESMA ANT. PERIODICO 28*31 (PAQ. * 1000H.)
+RESMA ANT.PE
+20,00
+14,500
+290,00
+RESMA ANT. PERIODICO 31*31 (PAQ. * 1000H.)
+RESMA ANT. PER
+20,00
+16,000
+320,00
+Bruto
+1.340,00
+2,00
+26,80
+Descuento
+Base Imponible
+1.313,20
+%
+I.V.A.
+21,0
+Importe
+I.V.A.
+275,77
+TOTAL
+1.588,97
+Unidades
+100,00
+`,
+    });
+
+    expect(items).toHaveLength(5);
+    expect(items.map((item) => item.matchCode)).toEqual([
+      'RESMA ANT PER',
+      'RESMA AN.PER3',
+      'RESMA A.28*34',
+      'RESMA ANT.PE',
+      'RESMA ANT. PER',
+    ]);
+    expect(items.map((item) => item.descriptionRaw)).not.toContain('I.V.A.');
+    expect(items.map((item) => item.descriptionRaw)).not.toContain(
+      '% I.V.A. 2,00',
+    );
+  });
 });
