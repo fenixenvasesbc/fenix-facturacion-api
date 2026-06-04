@@ -74,7 +74,7 @@ export class AiInvoiceInterpreterService {
       return this.result(input.invoiceItems, false);
     }
 
-    const itemsToReview = input.validationItems
+    const allItemsToReview = input.validationItems
       .map((item, itemIndex) => ({
         item,
         itemIndex,
@@ -82,10 +82,16 @@ export class AiInvoiceInterpreterService {
       .filter(
         ({ item }) => item.validationStatus !== InvoiceItemValidationStatus.OK,
       );
+    const updatesAllowed = this.updatesAllowed();
+    const itemsToReview = updatesAllowed
+      ? allItemsToReview
+      : allItemsToReview.filter(({ item }) => this.isDropCandidate(item));
 
     if (itemsToReview.length === 0) {
       this.logger.log(
-        `AI invoice interpretation skipped. All items are already OK. supplier=${input.supplierName} itemCount=${input.invoiceItems.length}`,
+        allItemsToReview.length === 0
+          ? `AI invoice interpretation skipped. All items are already OK. supplier=${input.supplierName} itemCount=${input.invoiceItems.length}`
+          : `AI invoice interpretation skipped. No actionable items for AI. supplier=${input.supplierName} itemsToReview=${allItemsToReview.length} updatesAllowed=${updatesAllowed}`,
       );
 
       return this.result(input.invoiceItems, false);
@@ -359,7 +365,7 @@ export class AiInvoiceInterpreterService {
     const corrected = invoiceItems.map((item) => ({ ...item }));
     const droppedIndexes = new Set<number>();
     const corrections = interpretation.corrections ?? [];
-    const updatesAllowed = process.env.OPENAI_INVOICE_AI_ALLOW_UPDATE === 'true';
+    const updatesAllowed = this.updatesAllowed();
     let appliedCorrections = 0;
 
     this.logger.log(
@@ -559,6 +565,62 @@ export class AiInvoiceInterpreterService {
 
   private normalizeMatchCode(value?: string | null) {
     return value?.trim().toUpperCase();
+  }
+
+  private updatesAllowed() {
+    return process.env.OPENAI_INVOICE_AI_ALLOW_UPDATE === 'true';
+  }
+
+  private isDropCandidate(item: ValidationItem) {
+    const description = this.normalize(item.invoiceItem.descriptionRaw);
+    const matchCode = this.normalize(item.invoiceItem.matchCode ?? '');
+
+    if (
+      description.includes('i v a') ||
+      matchCode === 'i v a' ||
+      description.includes('base imponible') ||
+      description.includes('bruto') ||
+      description.includes('descuento') ||
+      description.includes('total')
+    ) {
+      return true;
+    }
+
+    return (
+      this.looksLikeProductDescription(item.invoiceItem.matchCode) &&
+      this.looksLikeReferenceFragment(item.invoiceItem.descriptionRaw)
+    );
+  }
+
+  private looksLikeProductDescription(value?: string | null) {
+    const normalized = this.normalize(value ?? '');
+
+    return (
+      normalized.includes('periodico') ||
+      normalized.includes('paq') ||
+      normalized.includes('antigrasa') ||
+      normalized.includes('celulosa') ||
+      normalized.includes('bolsa') ||
+      normalized.includes('cliche')
+    );
+  }
+
+  private looksLikeReferenceFragment(value?: string | null) {
+    if (!value) {
+      return false;
+    }
+
+    const normalized = this.normalize(value);
+
+    return (
+      /[A-Z]/.test(value) &&
+      !normalized.includes('periodico') &&
+      !normalized.includes('paq') &&
+      !normalized.includes('antigrasa') &&
+      !normalized.includes('celulosa') &&
+      !normalized.includes('bolsa') &&
+      !normalized.includes('cliche')
+    );
   }
 
   private normalize(value: string) {

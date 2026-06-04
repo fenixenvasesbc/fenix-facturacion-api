@@ -107,6 +107,7 @@ describe('AiInvoiceInterpreterService', () => {
   });
 
   it('keeps the original item when the AI correction does not pass safeguards', async () => {
+    process.env.OPENAI_INVOICE_AI_ALLOW_UPDATE = 'true';
     const service = new AiInvoiceInterpreterService();
     jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: true,
@@ -173,6 +174,64 @@ describe('AiInvoiceInterpreterService', () => {
       quantity: '20.0000',
       unitPrice: '12.500000',
     });
+  });
+
+  it('skips OpenAI when only real products need catalog review and updates are disabled', async () => {
+    const service = new AiInvoiceInterpreterService();
+    const fetchMock = jest.spyOn(global, 'fetch');
+    const invoiceItems = [
+      {
+        descriptionRaw:
+          'RESMA ANTIGRASA 63,5X86 CM 40GR 400H IMP. CORTE 60X40',
+        descriptionNormalized:
+          'resma antigrasa 63 5x86 cm 40gr 400h imp corte 60x40',
+        matchCode: 'INTERPACK_RESMA_ANTIGRASA_CORTE_60X40',
+        quantity: '20.0000',
+        unit: PriceUnit.UNIT,
+        unitPrice: '34.300000',
+        totalAmount: '686.0000',
+        currency: 'EUR',
+        rowIndex: 0,
+        rawData: {},
+      },
+      {
+        descriptionRaw: '10+4*31 BOLSA PAPEL ANTIGRASA IMP.',
+        descriptionNormalized: '10 4 31 bolsa papel antigrasa imp',
+        matchCode: '10431AI',
+        quantity: '50000.0000',
+        unit: PriceUnit.UNIT,
+        unitPrice: '0.020400',
+        totalAmount: '1020.0000',
+        currency: 'EUR',
+        rowIndex: 1,
+        rawData: {},
+      },
+    ];
+
+    const result = await service.interpretItems({
+      supplierName: 'INTERPACK',
+      invoiceItems,
+      validationItems: invoiceItems.map((invoiceItem) => ({
+        invoiceItem,
+        validationStatus: InvoiceItemValidationStatus.PRODUCTO_NO_ENCONTRADO,
+      })),
+      negotiatedItems: [
+        negotiatedItem({
+          matchCode: 'CLICHES',
+          descriptionRaw: 'CLICHES',
+          priceAmount: '65',
+          normalizedUnitPrice: '65',
+        }),
+      ],
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      attempted: false,
+      appliedCorrections: 0,
+      returnedCorrections: 0,
+    });
+    expect(result.items).toHaveLength(2);
   });
 
   it('drops phantom invoice fragments when AI returns DROP with enough confidence', async () => {
