@@ -623,6 +623,10 @@ export class GenericInvoiceExtractorService {
   private isNoise(value: string) {
     const normalized = this.normalize(value);
 
+    if (this.isNumericOnly(value)) {
+      return true;
+    }
+
     return [
       'albaran',
       'vencimiento',
@@ -637,6 +641,12 @@ export class GenericInvoiceExtractorService {
       'iva',
       'retencion',
     ].some((term) => normalized.includes(term));
+  }
+
+  private isNumericOnly(value: string) {
+    return /^[-+]?\d{1,3}(?:[.\s]\d{3})*(?:,\d+)?$|^[-+]?\d+(?:[,.]\d+)?$/.test(
+      value.trim(),
+    );
   }
 
   private matchesAny(value: string, terms: string[]) {

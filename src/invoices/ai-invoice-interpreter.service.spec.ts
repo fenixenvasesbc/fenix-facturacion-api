@@ -564,6 +564,88 @@ describe('AiInvoiceInterpreterService', () => {
     });
     expect(result.items).toHaveLength(1);
   });
+
+  it('enables new suppliers by default and drops numeric-only fragments', async () => {
+    delete process.env.OPENAI_INVOICE_AI_SUPPLIERS;
+    const service = new AiInvoiceInterpreterService();
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        output_text: JSON.stringify({
+          corrections: [
+            {
+              itemIndex: 1,
+              action: 'DROP',
+              matchCode: null,
+              quantity: null,
+              unit: null,
+              unitPrice: null,
+              totalAmount: null,
+              confidence: 0.96,
+              reason: 'Numeric total fragment, not a product row.',
+            },
+          ],
+        }),
+      }),
+    } as Response);
+
+    const invoiceItems = [
+      {
+        descriptionRaw: 'VASO CARTON 4oz. 120ml. KRAFT',
+        descriptionNormalized: 'vaso carton 4oz 120ml kraft',
+        matchCode: 'SMRK4',
+        quantity: '5000.0000',
+        unit: PriceUnit.UNIT,
+        unitPrice: '0.032130',
+        totalAmount: '160.6500',
+        currency: 'EUR',
+        rowIndex: 0,
+        rawData: {},
+      },
+      {
+        descriptionRaw: '1.231,88',
+        descriptionNormalized: '1 231 88',
+        matchCode: '1.231,88',
+        quantity: '1.0000',
+        unit: PriceUnit.UNIT,
+        unitPrice: '258.690000',
+        totalAmount: '258.6900',
+        currency: 'EUR',
+        rowIndex: 1,
+        rawData: {},
+      },
+    ];
+
+    const result = await service.interpretItems({
+      supplierName: 'VASOMADRID',
+      invoiceItems,
+      validationItems: [
+        {
+          invoiceItem: invoiceItems[0],
+          validationStatus: InvoiceItemValidationStatus.OK,
+        },
+        {
+          invoiceItem: invoiceItems[1],
+          validationStatus: InvoiceItemValidationStatus.PRODUCTO_NO_ENCONTRADO,
+        },
+      ],
+      negotiatedItems: [
+        negotiatedItem({
+          matchCode: 'SMRK4',
+          descriptionRaw: 'VASO CARTON 4oz. 120ml. KRAFT',
+          priceAmount: '32.13',
+          normalizedUnitPrice: '0.03213',
+        }),
+      ],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      attempted: true,
+      appliedCorrections: 1,
+    });
+    expect(result.items).toHaveLength(1);
+  });
 });
 
 function negotiatedItem(input: {

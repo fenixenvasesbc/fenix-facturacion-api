@@ -33,6 +33,7 @@ describe('GenericInvoiceExtractorService', () => {
                   '160,65',
                 ],
                 ['MAQUETACION', 'MAQUETACION', '1,00', '30,00', '30,00'],
+                ['1.231,88', '1.231,88', '', '258,69', '258,69'],
                 ['Vencimientos', '/04/ - Operacion asegurada', '', '', ''],
               ],
             },

@@ -132,11 +132,15 @@ export class AiInvoiceInterpreterService {
 
     const enabledSuppliers = (
       process.env.OPENAI_INVOICE_AI_SUPPLIERS ??
-      'interpack,plastivalle,saica,saika,soto,mora y goma,drako'
+      '*'
     )
       .split(',')
-      .map((value) => this.normalize(value))
+      .map((value) => (value.trim() === '*' ? '*' : this.normalize(value)))
       .filter(Boolean);
+
+    if (enabledSuppliers.includes('*')) {
+      return true;
+    }
 
     return enabledSuppliers.some((supplier) =>
       this.normalize(supplierName).includes(supplier),
@@ -577,6 +581,8 @@ export class AiInvoiceInterpreterService {
     const matchCode = this.normalize(item.invoiceItem.matchCode ?? '');
 
     if (
+      this.isNumericOnly(item.invoiceItem.descriptionRaw) ||
+      this.isNumericOnly(item.invoiceItem.matchCode ?? '') ||
       description.includes('i v a') ||
       matchCode === 'i v a' ||
       description.includes('base imponible') ||
@@ -621,6 +627,12 @@ export class AiInvoiceInterpreterService {
       !normalized.includes('celulosa') &&
       !normalized.includes('bolsa') &&
       !normalized.includes('cliche')
+    );
+  }
+
+  private isNumericOnly(value: string) {
+    return /^[-+]?\d{1,3}(?:[.\s]\d{3})*(?:,\d+)?$|^[-+]?\d+(?:[,.]\d+)?$/.test(
+      value.trim(),
     );
   }
 
