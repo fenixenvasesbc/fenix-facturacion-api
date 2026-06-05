@@ -229,7 +229,7 @@ export class InvoicesService {
       },
     });
 
-    const structuredItems = this.documentExtraction.extractInvoice({
+    const structuredItems = await this.documentExtraction.extractInvoice({
       supplierName: invoice.supplier.name,
       rawText: invoice.rawText,
       rawData: invoice.rawData,

@@ -5,6 +5,7 @@ import {
   ExtractedPriceListItem,
 } from './document-extraction.types';
 import { DrakoExtractorService } from './drako-extractor.service';
+import { GenericInvoiceExtractorService } from './generic-invoice-extractor.service';
 import { InterpackExtractorService } from './interpack-extractor.service';
 import { MoraYGomaExtractorService } from './mora-y-goma-extractor.service';
 import { PlastivalleExtractorService } from './plastivalle-extractor.service';
@@ -22,6 +23,7 @@ export class DocumentExtractionService {
     private readonly plastivalleExtractor: PlastivalleExtractorService,
     private readonly saicaExtractor: SaicaExtractorService,
     private readonly sotoExtractor: SotoExtractorService,
+    private readonly genericInvoiceExtractor: GenericInvoiceExtractorService,
   ) {}
 
   extractPriceList(input: DocumentExtractionInput): ExtractedPriceListItem[] {
@@ -40,7 +42,9 @@ export class DocumentExtractionService {
     return [];
   }
 
-  extractInvoice(input: DocumentExtractionInput): ExtractedInvoiceItem[] {
+  async extractInvoice(
+    input: DocumentExtractionInput,
+  ): Promise<ExtractedInvoiceItem[]> {
     if (this.interpackExtractor.supports(input)) {
       const items = this.interpackExtractor.extractInvoice(input);
 
@@ -111,6 +115,16 @@ export class DocumentExtractionService {
 
         return items;
       }
+    }
+
+    const genericItems = await this.genericInvoiceExtractor.extractInvoice(input);
+
+    if (genericItems.length > 0) {
+      this.logger.log(
+        `Structured invoice extraction succeeded. extractor=generic count=${genericItems.length}`,
+      );
+
+      return genericItems;
     }
 
     return [];
