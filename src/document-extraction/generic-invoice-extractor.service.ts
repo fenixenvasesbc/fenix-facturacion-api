@@ -90,7 +90,7 @@ export class GenericInvoiceExtractorService {
       }
     }
 
-    return this.dedupe(items);
+    return items;
   }
 
   private findHeader(rows: string[][]) {
@@ -190,8 +190,9 @@ export class GenericInvoiceExtractorService {
       return index === undefined ? undefined : row[index]?.trim();
     };
 
-    const descriptionRaw = get('description');
-    const reference = this.cleanReference(get('reference'));
+    const resolvedIdentity = this.resolveRowIdentity(row, input.headerMap);
+    const descriptionRaw = resolvedIdentity.descriptionRaw;
+    const reference = resolvedIdentity.reference;
     const quantity = this.parseNumberSafe(get('quantity'));
     const rawUnit = get('unit');
     const unitPrice = this.parseNumberSafe(get('unitPrice'));
@@ -231,9 +232,82 @@ export class GenericInvoiceExtractorService {
           cells: row,
           headerMap: input.headerMap,
           rawUnit,
+          identityStrategy: resolvedIdentity.strategy,
         },
       },
     });
+  }
+
+  private resolveRowIdentity(row: string[], headerMap: HeaderMap) {
+    const referenceCell =
+      headerMap.reference === undefined
+        ? undefined
+        : row[headerMap.reference]?.trim();
+    const descriptionIndex = headerMap.description;
+    const descriptionCell =
+      descriptionIndex === undefined ? undefined : row[descriptionIndex]?.trim();
+    const numericStartIndex = this.firstNumericColumnIndex(headerMap, row.length);
+    const trailingDescription = this.collectDescriptionCells(
+      row,
+      descriptionIndex === undefined ? 0 : descriptionIndex + 1,
+      numericStartIndex,
+    );
+    const reference = this.cleanReference(referenceCell);
+
+    if (
+      this.isGenericReferenceLabel(reference) &&
+      this.looksLikeReferenceCode(descriptionCell) &&
+      trailingDescription
+    ) {
+      return {
+        reference: this.cleanReference(descriptionCell),
+        descriptionRaw: trailingDescription,
+        strategy: 'promoted-description-code',
+      };
+    }
+
+    const descriptionRaw =
+      descriptionCell && !this.isNoise(descriptionCell)
+        ? [descriptionCell, trailingDescription]
+            .filter(Boolean)
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+        : trailingDescription;
+
+    return {
+      reference,
+      descriptionRaw,
+      strategy: 'header-map',
+    };
+  }
+
+  private firstNumericColumnIndex(headerMap: HeaderMap, fallback: number) {
+    return Math.min(
+      ...[
+        headerMap.quantity,
+        headerMap.unit,
+        headerMap.unitPrice,
+        headerMap.totalAmount,
+      ].filter((value): value is number => value !== undefined),
+      fallback,
+    );
+  }
+
+  private collectDescriptionCells(
+    row: string[],
+    startIndex: number,
+    endIndex: number,
+  ) {
+    return row
+      .slice(startIndex, endIndex)
+      .map((cell) => cell.trim())
+      .filter(Boolean)
+      .filter((cell) => !this.isNoise(cell))
+      .filter((cell) => !this.isNumericOnly(cell))
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   private async extractWithAi(input: DocumentExtractionInput) {
@@ -661,6 +735,35 @@ export class GenericInvoiceExtractorService {
     }
 
     return cleaned.replace(/\s+/g, ' ').toUpperCase();
+  }
+
+  private isGenericReferenceLabel(value?: string) {
+    const normalized = this.normalize(value ?? '');
+
+    return [
+      'folio',
+      'referencia',
+      'ref',
+      'codigo',
+      'cod',
+      'articulo',
+      'producto',
+    ].includes(normalized);
+  }
+
+  private looksLikeReferenceCode(value?: string) {
+    if (!value) {
+      return false;
+    }
+
+    const trimmed = value.trim();
+
+    return (
+      /[a-z]/i.test(trimmed) &&
+      /\d/.test(trimmed) &&
+      !/\s{2,}/.test(trimmed) &&
+      trimmed.split(/\s+/).length <= 2
+    );
   }
 
   private parseNumberSafe(value?: string) {

@@ -33,6 +33,8 @@ describe('GenericInvoiceExtractorService', () => {
                   '160,65',
                 ],
                 ['MAQUETACION', 'MAQUETACION', '1,00', '30,00', '30,00'],
+                ['MAQUETACION', 'MAQUETACION', '1,00', '30,00', '30,00'],
+                ['MAQUETACION', 'MAQUETACION', '1,00', '30,00', '30,00'],
                 ['1.231,88', '1.231,88', '', '258,69', '258,69'],
                 ['Vencimientos', '/04/ - Operacion asegurada', '', '', ''],
               ],
@@ -42,7 +44,7 @@ describe('GenericInvoiceExtractorService', () => {
       },
     });
 
-    expect(items).toHaveLength(2);
+    expect(items).toHaveLength(4);
     expect(items[0]).toMatchObject({
       descriptionRaw: 'VASO CARTON 4oz. KRAFT "BOULANGERIE"',
       matchCode: 'SMRK4',
@@ -52,6 +54,9 @@ describe('GenericInvoiceExtractorService', () => {
       unitPrice: '0.032130',
       totalAmount: '160.6500',
     });
+    expect(items.filter((item) => item.matchCode === 'MAQUETACION')).toHaveLength(
+      3,
+    );
     expect(items[1]).toMatchObject({
       descriptionRaw: 'MAQUETACION',
       matchCode: 'MAQUETACION',
@@ -59,6 +64,47 @@ describe('GenericInvoiceExtractorService', () => {
       unit: PriceUnit.UNIT,
       unitPrice: '30.000000',
       totalAmount: '30.0000',
+    });
+  });
+
+  it('promotes the real reference when OCR puts a generic label in the reference column', async () => {
+    const items = await service.extractInvoice({
+      supplierName: 'VASO MADRID',
+      rawData: {
+        ocr: {
+          tables: [
+            {
+              rows: [
+                [
+                  'Referencia',
+                  'Descripcion',
+                  'Detalle',
+                  'Cantidad',
+                  'Precio',
+                  'Importe',
+                ],
+                [
+                  'Folio',
+                  'TSMR4N100',
+                  'TAPA VASO CARTON 4oz TRAVEL-NEGRA 62mm',
+                  '4,00',
+                  '22,590',
+                  '90,36',
+                ],
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      descriptionRaw: 'TAPA VASO CARTON 4oz TRAVEL-NEGRA 62mm',
+      matchCode: 'TSMR4N100',
+      reference: 'TSMR4N100',
+      quantity: '4000.0000',
+      unitPrice: '0.022590',
     });
   });
 
