@@ -108,6 +108,33 @@ describe('GenericInvoiceExtractorService', () => {
     });
   });
 
+  it('promotes a description-cell reference even when OCR does not include another description cell', async () => {
+    const items = await service.extractInvoice({
+      supplierName: 'VASO MADRID',
+      rawData: {
+        ocr: {
+          tables: [
+            {
+              rows: [
+                ['Referencia', 'Descripcion', 'Cantidad', 'Precio', 'Importe'],
+                ['Folio', 'TSMR4N100', '4,00', '22,590', '90,36'],
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      descriptionRaw: 'TSMR4N100',
+      matchCode: 'TSMR4N100',
+      reference: 'TSMR4N100',
+      quantity: '4000.0000',
+      unitPrice: '0.022590',
+    });
+  });
+
   it('keeps square meter rows as M2 instead of normalizing them as units', async () => {
     const items = await service.extractInvoice({
       supplierName: 'PROVEEDOR GENERICO',

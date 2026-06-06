@@ -588,7 +588,7 @@ export class InvoiceValidationService {
       PriceUnit.UNKNOWN;
 
     return {
-      product: item.invoiceItem.descriptionRaw,
+      product: this.displayProductName(item.invoiceItem, item.matchedItem),
       negotiatedPrice: item.matchedItem
         ? this.formatNegotiatedPrice(
             item.invoiceItem,
@@ -605,6 +605,28 @@ export class InvoiceValidationService {
       status: item.validationStatus,
       severity: this.resolveSeverity(item.validationStatus),
     };
+  }
+
+  private displayProductName(
+    invoiceItem: ParsedInvoiceItem,
+    matchedItem?: NegotiatedItem,
+  ) {
+    if (!matchedItem) {
+      return invoiceItem.descriptionRaw;
+    }
+
+    const invoiceDescription = this.normalize(invoiceItem.descriptionRaw);
+    const invoiceMatchCode = this.normalize(invoiceItem.matchCode ?? '');
+
+    if (
+      invoiceDescription &&
+      invoiceMatchCode &&
+      invoiceDescription === invoiceMatchCode
+    ) {
+      return matchedItem.descriptionRaw;
+    }
+
+    return invoiceItem.descriptionRaw;
   }
 
   private formatNegotiatedPrice(

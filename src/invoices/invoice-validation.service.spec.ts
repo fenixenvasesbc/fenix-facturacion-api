@@ -624,4 +624,61 @@ describe('InvoiceValidationService', () => {
       status: InvoiceItemValidationStatus.PRECIO_MENOR,
     });
   });
+
+  it('shows the negotiated description when the invoice description is only the match code', () => {
+    const result = service.validate(
+      [
+        {
+          descriptionRaw: 'TSMR4N100',
+          descriptionNormalized: 'tsmr4n100',
+          matchCode: 'TSMR4N100',
+          quantity: '4000.0000',
+          unit: PriceUnit.UNIT,
+          unitPrice: '0.030000',
+          totalAmount: '120.0000',
+          currency: 'EUR',
+          rowIndex: 0,
+          rawData: {},
+        },
+      ],
+      [
+        {
+          id: 'vasomadrid-tapa-4oz-negra',
+          priceListId: 'price-list-id',
+          supplierId: 'supplier-id',
+          canonicalProductId: null,
+          matchCode: 'TSMR4N100',
+          lengthMm: null,
+          widthMm: null,
+          heightMm: null,
+          descriptionRaw: 'TAPA VASO CARTON 4oz TRAVEL NEGRA',
+          descriptionNormalized: 'tapa vaso carton 4oz travel negra',
+          channel: null,
+          priceAmount: '22.5900',
+          currency: 'EUR',
+          priceUnit: PriceUnit.THOUSAND_UNITS,
+          priceQuantityBase: '1000',
+          rawUnitLabel: 'millar',
+          normalizedUnitPrice: '0.022590',
+          normalizedUnit: PriceUnit.UNIT,
+          discountPercent: null,
+          taxPercent: null,
+          status: PriceItemStatus.ACTIVE,
+          rowIndex: null,
+          pageNumber: null,
+          rawData: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          canonicalProduct: null,
+          aliases: [],
+          priceRules: [],
+        },
+      ],
+    );
+
+    expect(result.response.differences[0]).toMatchObject({
+      product: 'TAPA VASO CARTON 4oz TRAVEL NEGRA',
+      status: InvoiceItemValidationStatus.SOBRECOSTE,
+    });
+  });
 });

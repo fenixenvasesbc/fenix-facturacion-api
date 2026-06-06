@@ -256,12 +256,11 @@ export class GenericInvoiceExtractorService {
 
     if (
       this.isGenericReferenceLabel(reference) &&
-      this.looksLikeReferenceCode(descriptionCell) &&
-      trailingDescription
+      this.looksLikeReferenceCode(descriptionCell)
     ) {
       return {
         reference: this.cleanReference(descriptionCell),
-        descriptionRaw: trailingDescription,
+        descriptionRaw: trailingDescription || descriptionCell,
         strategy: 'promoted-description-code',
       };
     }
@@ -556,6 +555,10 @@ export class GenericInvoiceExtractorService {
       normalized.includes('transporte')
     ) {
       return false;
+    }
+
+    if (this.looksLikeReferenceCode(descriptionRaw)) {
+      return true;
     }
 
     return (
