@@ -24,7 +24,8 @@
     "import:soto": "ts-node --transpile-only scripts/import-soto-prices.ts",
     "import:drako": "ts-node --transpile-only scripts/import-drako-prices.ts",
     "import:interpack": "ts-node --transpile-only scripts/import-interpack-prices.ts",
-    "import:plastivalle": "ts-node --transpile-only scripts/import-plastivalle-prices.ts"
+    "import:plastivalle": "ts-node --transpile-only scripts/import-plastivalle-prices.ts",
+    "import:vasomadrid:tapas": "ts-node --transpile-only scripts/import-vasomadrid-tapas.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
